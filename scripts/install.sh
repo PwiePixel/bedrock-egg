@@ -103,6 +103,151 @@ else
 fi
 
 chmod +x bedrock_server
+
+# ---------------------------------------------------------------------------
+# Grundeinstellungen fuer neue Welten (werden beim Start zusaetzlich vom Panel gesetzt)
+# ---------------------------------------------------------------------------
+set_prop() {
+    grep -v "^$1=" server.properties > server.properties.tmp || true
+    echo "$1=$2" >> server.properties.tmp
+    mv server.properties.tmp server.properties
+}
+[ -n "${LEVEL_NAME}" ] && set_prop level-name "${LEVEL_NAME}"
+[ -n "${LEVEL_SEED}" ] && set_prop level-seed "${LEVEL_SEED}"
+[ -n "${GAMEMODE}" ] && set_prop gamemode "${GAMEMODE}"
+[ -n "${DIFFICULTY}" ] && set_prop difficulty "${DIFFICULTY}"
+
+# ---------------------------------------------------------------------------
+# Chat-Log: Behavior-Pack, das Chatnachrichten und Tode in die Konsole schreibt
+# ---------------------------------------------------------------------------
+PACK_UUID="5d1e7c3a-8b2f-4c6d-9e0a-1b2c3d4e5f60"
+PACK_DIR="behavior_packs/konsolen_chatlog"
+LEVEL="$(grep '^level-name=' server.properties | cut -d= -f2-)"
+[ -z "${LEVEL}" ] && LEVEL="Bedrock level"
+WORLD_DIR="worlds/${LEVEL}"
+
+run_probe() {
+    rm -f "$1"
+    (
+        for _ in $(seq 1 150); do
+            sleep 1
+            if grep -qE "Server started|Exiting program" "$1" 2>/dev/null; then break; fi
+        done
+        sleep 2
+        echo stop
+    ) | LD_LIBRARY_PATH=. timeout 200 ./bedrock_server > "$1" 2>&1 || true
+}
+
+update_world_packs() {
+    # $1 = add | remove
+    python3 - "$WORLD_DIR/world_behavior_packs.json" "$PACK_UUID" "$1" <<'PY'
+import json, os, sys
+path, uuid, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+packs = []
+if os.path.exists(path):
+    try:
+        packs = json.load(open(path))
+    except Exception:
+        packs = []
+packs = [p for p in packs if p.get("pack_id") != uuid]
+if mode == "add":
+    packs.append({"pack_id": uuid, "version": [1, 0, 0]})
+if packs or os.path.exists(path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    json.dump(packs, open(path, "w"), indent=2)
+PY
+}
+
+write_pack() {
+    # $1 = @minecraft/server Version
+    mkdir -p "${PACK_DIR}/scripts"
+    cat > "${PACK_DIR}/manifest.json" <<JSON
+{
+  "format_version": 2,
+  "header": {
+    "name": "Konsolen-Chatlog",
+    "description": "Schreibt Chatnachrichten und Tode in die Server-Konsole",
+    "uuid": "${PACK_UUID}",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "9c4b2a1d-6e5f-4a3b-8c7d-0e1f2a3b4c5d",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "module_name": "@minecraft/server", "version": "$1" }
+  ]
+}
+JSON
+    cat > "${PACK_DIR}/scripts/main.js" <<'JS'
+import { world } from "@minecraft/server";
+
+world.afterEvents.chatSend.subscribe((ev) => {
+    console.log(`[Chat] <${ev.sender.name}> ${ev.message}`);
+});
+
+world.afterEvents.entityDie.subscribe((ev) => {
+    const dead = ev.deadEntity;
+    if (dead.typeId !== "minecraft:player") return;
+    const src = ev.damageSource;
+    let by = src.cause;
+    if (src.damagingEntity) {
+        by = src.damagingEntity.typeId === "minecraft:player"
+            ? src.damagingEntity.name
+            : src.damagingEntity.typeId.replace("minecraft:", "");
+    }
+    console.log(`[Tod] ${dead.name} ist gestorben (${by})`);
+});
+JS
+}
+
+CHAT_LOG="${CHAT_LOG:-true}"
+if [ "${CHAT_LOG}" = "true" ]; then
+    echo ">> Richte Chat-Log ein ..."
+    if ! command -v python3 >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1 && apt-get install -y python3 >/dev/null 2>&1 || true
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "!! python3 nicht verfuegbar - Chat-Log wird uebersprungen."
+    else
+        cat > /tmp/enable_beta_api.py <<'PY'
+__ENABLE_BETA_PY__
+PY
+        set_prop content-log-console-output-enabled true
+        if [ ! -f "${WORLD_DIR}/level.dat" ]; then
+            echo ">> Erzeuge Welt '${LEVEL}' ..."
+            run_probe /tmp/bds_probe1.log
+        fi
+        if [ -f "${WORLD_DIR}/level.dat" ] && python3 /tmp/enable_beta_api.py "${WORLD_DIR}/level.dat"; then
+            write_pack "99.0.0-beta"
+            update_world_packs add
+            echo ">> Ermittle Script-API-Version ..."
+            run_probe /tmp/bds_probe2.log
+            API_VERSION="$(grep -oE 'Current \[beta\] version is \[[^]]+\]' /tmp/bds_probe2.log | head -n1 | sed -E 's/.*\[([^]]+)\]$/\1/')"
+            if [ -n "${API_VERSION}" ]; then
+                write_pack "${API_VERSION}"
+                echo ">> Chat-Log aktiv (Script-API ${API_VERSION})"
+            else
+                echo "!! Script-API-Version nicht ermittelbar - Chat-Log deaktiviert."
+                update_world_packs remove
+                rm -rf "${PACK_DIR}"
+            fi
+        else
+            echo "!! Welt konnte nicht vorbereitet werden - Chat-Log wird uebersprungen."
+        fi
+        rm -f /tmp/bds_probe1.log /tmp/bds_probe2.log /tmp/enable_beta_api.py
+    fi
+else
+    update_world_packs remove 2>/dev/null || true
+    rm -rf "${PACK_DIR}"
+fi
+
 echo "${DOWNLOAD_URL##*/}" | sed -e 's/^bedrock-server-//' -e 's/\.zip$//' > .bedrock_version
 
 echo ">> Installation abgeschlossen: Version $(cat .bedrock_version)"

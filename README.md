@@ -3,9 +3,32 @@
 Ein funktionierendes Egg für den offiziellen **Minecraft Bedrock Dedicated Server** (Linux).
 Getestet mit Bedrock **1.26.66.1**, also auch mit dem neuen Netzwerk-Transport *NetherNet*.
 
+## Zwei Varianten
+
+| Datei | Für wen | Unterschied |
+|---|---|---|
+| [`egg-minecraft-bedrock.json`](egg-minecraft-bedrock.json) | Normaler Server | Mojang-Standardwerte (Sichtweite 32, 8 Threads) |
+| [`egg-minecraft-bedrock-performance.json`](egg-minecraft-bedrock-performance.json) | Wenig CPU/RAM | Sichtweite 10, 4 Threads, Kompression `snappy` ab 256 Byte, Chunk-Aufbau beim Client, LAN-Suche aus |
+
+Beide Varianten können parallel im selben Nest liegen. Sichtweite, Tick-Distanz und Threads lassen sich bei beiden pro Server über Variablen anpassen.
+
+## Chat-Log in der Konsole
+
+Der Bedrock-Server schreibt Chatnachrichten normalerweise nicht in die Konsole. Das Egg installiert deshalb ein kleines Behavior-Pack (`behavior_packs/konsolen_chatlog`), das diese Zeilen ausgibt:
+
+```
+[Scripting] [Chat] <Spielername> Hallo zusammen
+[Scripting] [Tod] Spielername ist gestorben (zombie)
+```
+
+Beitritte und Abgänge (`Player connected` / `Player disconnected`) protokolliert der Server ohnehin selbst.
+
+**Wichtig:** Das Chat-Event gibt es nur in der Beta-Script-API. Die Installation aktiviert dafür in der Welt das Experiment **„Beta APIs“** und sichert die alte Datei als `level.dat.bak`. Das Experiment lässt sich in einer Welt nicht wieder abschalten. Wer das nicht möchte, setzt `CHAT_LOG=false` vor der ersten Installation.
+Die passende Script-API-Version ermittelt die Installation selbst. Nach einem Bedrock-Update reicht deshalb eine Neuinstallation.
+
 ## Import
 
-1. Lade die Datei [`egg-minecraft-bedrock.json`](egg-minecraft-bedrock.json) herunter.
+1. Lade eine der beiden JSON-Dateien herunter (oder beide).
 2. Im Panel: **Admin → Nests → (Nest auswählen oder neu anlegen) → Import Egg**.
 3. Die JSON-Datei auswählen und importieren.
 4. Neuen Server mit dem Egg **Minecraft Bedrock** erstellen.
@@ -41,6 +64,10 @@ Getestet mit Bedrock **1.26.66.1**, also auch mit dem neuen Netzwerk-Transport *
 | `TRANSPORT` | `nethernet` | `nethernet` (empfohlen) oder `raknet` |
 | `PUBLIC_IP` | `auto` | IP, die den Spielern für NetherNet mitgeteilt wird: `auto`, feste IP oder `off` |
 | `TELEMETRY` | `true` | `emit-server-telemetry` (Telemetrie an Mojang) |
+| `VIEW_DISTANCE` | `32` / `10` | Sichtweite in Chunks (normal / Performance) |
+| `TICK_DISTANCE` | `4` | Aktiv berechnete Chunks um Spieler (4–12) |
+| `MAX_THREADS` | `8` / `4` | CPU-Threads (0 = unbegrenzt) |
+| `CHAT_LOG` | `true` | Chat und Tode in der Konsole (wirksam nach Neuinstallation) |
 
 ## Fehlerbehebung
 
@@ -57,7 +84,7 @@ Getestet mit Bedrock **1.26.66.1**, also auch mit dem neuen Netzwerk-Transport *
 
 ## Entwicklung
 
-Die JSON-Datei wird aus `scripts/install.sh` erzeugt:
+Beide JSON-Dateien werden aus `scripts/install.sh` und `scripts/enable_beta_api.py` erzeugt:
 
 ```bash
 python3 build_egg.py
