@@ -9,9 +9,12 @@ install_script = (ROOT / "scripts" / "install.sh").read_text().replace("\r\n", "
 
 startup = (
     'if [ -f server.properties ]; then P={{SERVER_PORT}}; U="$P"; IP="{{PUBLIC_IP}}"; '
-    'if [ "$IP" = "auto" ]; then IP=$(curl -fsS -m 5 https://api.ipify.org || true); fi; '
-    'if [ -n "$IP" ]; then U="$IP:$P:$P"; fi; '
-    'sed -i -e "s/^server-portv6=.*/server-portv6=$((P+1))/" -e "s/^server-udp-ports=.*/server-udp-ports=$U/" server.properties; fi; '
+    'if [ "$IP" = "auto" ]; then IP=""; case "{{SERVER_IP}}" in ""|0.0.0.0|127.*|10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) ;; *) IP="{{SERVER_IP}}";; esac; '
+    'if [ -z "$IP" ]; then IP=$(curl -fsS -m 5 https://api.ipify.org || curl -fsS -m 5 https://ifconfig.me || true); fi; fi; '
+    'if [ "$IP" = "off" ]; then IP=""; fi; '
+    'if [ -n "$IP" ]; then U="$IP:$P:$P"; echo "NetherNet: oeffentliche Adresse $IP:$P"; fi; '
+    'sed -i -e "s/^server-portv6=.*/server-portv6=$((P+1))/" -e "s/^server-udp-ports=.*/server-udp-ports=$U/" -e "/^emit-server-telemetry=/d" server.properties; '
+    'echo "emit-server-telemetry={{TELEMETRY}}" >> server.properties; fi; '
     'LD_LIBRARY_PATH=. ./bedrock_server'
 )
 
@@ -82,11 +85,14 @@ variables = [
         "nethernet = neuer Standard ab 1.26 (TCP + UDP auf dem Server-Port, funktioniert auch ohne IPv6). "
         "raknet = klassischer UDP-Modus (benoetigt IPv6 im Container, sonst stuerzt der Server ab).",
         "required|string|in:nethernet,raknet"),
-    var("Oeffentliche IP", "PUBLIC_IP", "",
-        "Nur fuer nethernet: Oeffentliche IP des Servers, die den Spielern mitgeteilt wird. "
-        "Leer lassen = automatisch durch den Server, 'auto' = IP wird beim Start ermittelt, "
-        "oder eine feste IP eintragen. Hilft, wenn Spieler beim Beitreten haengen bleiben.",
-        "nullable|string|max:64"),
+    var("Oeffentliche IP", "PUBLIC_IP", "auto",
+        "Nur fuer nethernet: Die IP, ueber die Spieler den Server erreichen. "
+        "'auto' = automatisch (Allocation-IP, sonst oeffentliche IP des Hosts), "
+        "eine feste IP eintragen (z.B. LAN-IP fuer Heimserver) oder 'off' zum Abschalten.",
+        "required|string|max:64"),
+    var("Server-Telemetrie", "TELEMETRY", "true",
+        "Sendet anonyme Server-Telemetrie an Mojang (emit-server-telemetry, true/false).",
+        "required|string|in:true,false"),
 ]
 
 egg = {

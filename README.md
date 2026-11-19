@@ -39,12 +39,19 @@ Getestet mit Bedrock **1.26.66.1**, also auch mit dem neuen Netzwerk-Transport *
 | `ONLINE_MODE` | `true` | Xbox-Anmeldung erforderlich |
 | `ALLOW_LIST` | `false` | Allowlist aktiv |
 | `TRANSPORT` | `nethernet` | `nethernet` (empfohlen) oder `raknet` |
-| `PUBLIC_IP` | *(leer)* | Öffentliche IP für NetherNet. `auto` ermittelt sie beim Start |
+| `PUBLIC_IP` | `auto` | IP, die den Spielern für NetherNet mitgeteilt wird: `auto`, feste IP oder `off` |
+| `TELEMETRY` | `true` | `emit-server-telemetry` (Telemetrie an Mojang) |
 
 ## Fehlerbehebung
 
-- **Spieler bleiben beim Beitreten hängen (NetherNet):** Setze `PUBLIC_IP` auf die öffentliche IP des Servers oder auf `auto`.
-  Prüfe außerdem, dass der Port in der Firewall des Hosts für **TCP und UDP** offen ist.
+- **Server ist online, aber Beitritt scheitert** (z. B. „Persona konnte nicht installiert werden“, Fehlercode „Terracotta“):
+  Bei NetherNet läuft nur die Serverliste über TCP, das Spiel selbst über UDP. Ohne öffentliche IP teilt der Server
+  den Spielern die interne Docker-IP (172.x.x.x) mit, und die ist von außen nicht erreichbar.
+  `PUBLIC_IP=auto` (Standard) ermittelt die richtige IP. Beim Start steht in der Konsole `NetherNet: oeffentliche Adresse …`.
+  Prüfe zusätzlich, dass der Port in der Firewall des Hosts für **TCP und UDP** offen ist.
+- **Heimserver / Spielen im LAN:** Trage bei `PUBLIC_IP` die LAN-IP des Hosts ein (z. B. `192.168.1.50`).
+  Für Spieler aus dem Internet trägst du die öffentliche IP ein und richtest im Router eine Portweiterleitung für TCP **und** UDP ein.
+- **Hilft das alles nicht:** Stelle `TRANSPORT` auf `raknet`. Das klappt nur, wenn der Docker-Container IPv6 hat.
 - **`Port [...] may be in use` mit `raknet`:** Meist fehlt IPv6 im Container. Stelle `TRANSPORT` auf `nethernet`.
 - **Update:** Unter *Settings → Reinstall Server* neu installieren.
 

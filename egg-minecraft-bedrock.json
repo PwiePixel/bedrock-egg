@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-11-19T03:19:20+00:00",
+    "exported_at": "2026-11-19T03:31:22+00:00",
     "name": "Minecraft Bedrock",
     "author": "contact@pixelcst.tech",
     "description": "Offizieller Minecraft Bedrock Dedicated Server (Linux). Laedt die Version direkt von Mojang herunter, unterstuetzt latest/preview/feste Versionen und behaelt beim Update Welten und Einstellungen.",
@@ -13,7 +13,7 @@
         "Debian": "ghcr.io/parkervcp/yolks:debian"
     },
     "file_denylist": [],
-    "startup": "if [ -f server.properties ]; then P={{SERVER_PORT}}; U=\"$P\"; IP=\"{{PUBLIC_IP}}\"; if [ \"$IP\" = \"auto\" ]; then IP=$(curl -fsS -m 5 https://api.ipify.org || true); fi; if [ -n \"$IP\" ]; then U=\"$IP:$P:$P\"; fi; sed -i -e \"s/^server-portv6=.*/server-portv6=$((P+1))/\" -e \"s/^server-udp-ports=.*/server-udp-ports=$U/\" server.properties; fi; LD_LIBRARY_PATH=. ./bedrock_server",
+    "startup": "if [ -f server.properties ]; then P={{SERVER_PORT}}; U=\"$P\"; IP=\"{{PUBLIC_IP}}\"; if [ \"$IP\" = \"auto\" ]; then IP=\"\"; case \"{{SERVER_IP}}\" in \"\"|0.0.0.0|127.*|10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) ;; *) IP=\"{{SERVER_IP}}\";; esac; if [ -z \"$IP\" ]; then IP=$(curl -fsS -m 5 https://api.ipify.org || curl -fsS -m 5 https://ifconfig.me || true); fi; fi; if [ \"$IP\" = \"off\" ]; then IP=\"\"; fi; if [ -n \"$IP\" ]; then U=\"$IP:$P:$P\"; echo \"NetherNet: oeffentliche Adresse $IP:$P\"; fi; sed -i -e \"s/^server-portv6=.*/server-portv6=$((P+1))/\" -e \"s/^server-udp-ports=.*/server-udp-ports=$U/\" -e \"/^emit-server-telemetry=/d\" server.properties; echo \"emit-server-telemetry={{TELEMETRY}}\" >> server.properties; fi; LD_LIBRARY_PATH=. ./bedrock_server",
     "config": {
         "files": "{\n    \"server.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"server-port\": \"{{server.build.default.port}}\",\n            \"server-name\": \"{{server.build.env.SERVERNAME}}\",\n            \"gamemode\": \"{{server.build.env.GAMEMODE}}\",\n            \"difficulty\": \"{{server.build.env.DIFFICULTY}}\",\n            \"max-players\": \"{{server.build.env.MAX_PLAYERS}}\",\n            \"level-name\": \"{{server.build.env.LEVEL_NAME}}\",\n            \"level-seed\": \"{{server.build.env.LEVEL_SEED}}\",\n            \"allow-cheats\": \"{{server.build.env.ALLOW_CHEATS}}\",\n            \"online-mode\": \"{{server.build.env.ONLINE_MODE}}\",\n            \"allow-list\": \"{{server.build.env.ALLOW_LIST}}\",\n            \"transport\": \"{{server.build.env.TRANSPORT}}\"\n        }\n    }\n}",
         "startup": "{\n    \"done\": \"Server started\"\n}",
@@ -140,12 +140,22 @@
         },
         {
             "name": "Oeffentliche IP",
-            "description": "Nur fuer nethernet: Oeffentliche IP des Servers, die den Spielern mitgeteilt wird. Leer lassen = automatisch durch den Server, 'auto' = IP wird beim Start ermittelt, oder eine feste IP eintragen. Hilft, wenn Spieler beim Beitreten haengen bleiben.",
+            "description": "Nur fuer nethernet: Die IP, ueber die Spieler den Server erreichen. 'auto' = automatisch (Allocation-IP, sonst oeffentliche IP des Hosts), eine feste IP eintragen (z.B. LAN-IP fuer Heimserver) oder 'off' zum Abschalten.",
             "env_variable": "PUBLIC_IP",
-            "default_value": "",
+            "default_value": "auto",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "nullable|string|max:64",
+            "rules": "required|string|max:64",
+            "field_type": "text"
+        },
+        {
+            "name": "Server-Telemetrie",
+            "description": "Sendet anonyme Server-Telemetrie an Mojang (emit-server-telemetry, true/false).",
+            "env_variable": "TELEMETRY",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         }
     ]
