@@ -13,8 +13,8 @@ startup = (
     'if [ -z "$IP" ]; then IP=$(curl -4 -fsS -m 5 https://api.ipify.org || curl -4 -fsS -m 5 https://ifconfig.me || true); fi; fi; '
     'if [ "$IP" = "off" ]; then IP=""; fi; '
     'if [ -n "$IP" ]; then U="$IP:$P:$P"; echo "NetherNet: oeffentliche Adresse $IP:$P"; fi; '
-    'sed -i -e "s/^server-portv6=.*/server-portv6=$((P+1))/" -e "s/^server-udp-ports=.*/server-udp-ports=$U/" -e "/^emit-server-telemetry=/d" server.properties; '
-    'echo "emit-server-telemetry={{TELEMETRY}}" >> server.properties; fi; '
+    'for KV in "server-portv6=$((P+1))" "server-udp-ports=$U" "emit-server-telemetry={{TELEMETRY}}"; do '
+    'K="${KV%%=*}"; sed -i "/^$K=/d" server.properties; echo "$KV" >> server.properties; done; fi; '
     'LD_LIBRARY_PATH=. ./bedrock_server'
 )
 

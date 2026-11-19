@@ -74,9 +74,24 @@ echo ">> Entpacke Server ..."
 unzip -oq bedrock-server.zip
 rm -f bedrock-server.zip
 
+# Neue Standard-server.properties merken, um fehlende Eintraege zu ergaenzen
+cp -a server.properties "${BACKUP_DIR}/server.properties.new"
+
 for f in server.properties permissions.json allowlist.json whitelist.json; do
     if [ -f "${BACKUP_DIR}/$f" ]; then cp -af "${BACKUP_DIR}/$f" "./$f"; fi
 done
+
+# Alle Eintraege, die in der behaltenen server.properties fehlen, aus der neuen Version uebernehmen
+ADDED=0
+while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    key="${line%%=*}"
+    if ! grep -q "^${key}=" server.properties; then
+        echo "$line" >> server.properties
+        ADDED=$((ADDED+1))
+    fi
+done < "${BACKUP_DIR}/server.properties.new"
+[ "${ADDED}" -gt 0 ] && echo ">> ${ADDED} fehlende Eintraege in server.properties ergaenzt"
 rm -rf "${BACKUP_DIR}"
 
 # Server-Telemetrie standardmaessig aktivieren
