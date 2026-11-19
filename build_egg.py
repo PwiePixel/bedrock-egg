@@ -9,7 +9,7 @@ install_script = (ROOT / "scripts" / "install.sh").read_text().replace("\r\n", "
 
 startup = (
     'if [ -f server.properties ]; then P={{SERVER_PORT}}; U="$P"; IP="{{PUBLIC_IP}}"; '
-    'if [ "$IP" = "auto" ]; then IP=""; case "{{SERVER_IP}}" in ""|0.0.0.0|127.*|10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) ;; *) IP="{{SERVER_IP}}";; esac; '
+    'if [ -z "$IP" ] || [ "$IP" = "auto" ]; then IP=""; case "{{SERVER_IP}}" in ""|0.0.0.0|127.*|10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) ;; *) IP="{{SERVER_IP}}";; esac; '
     'if [ -z "$IP" ]; then IP=$(curl -4 -fsS -m 5 https://api.ipify.org || curl -4 -fsS -m 5 https://ifconfig.me || true); fi; fi; '
     'if [ "$IP" = "off" ]; then IP=""; fi; '
     'if [ -n "$IP" ]; then U="$IP:$P:$P"; echo "NetherNet: oeffentliche Adresse $IP:$P"; fi; '
@@ -89,8 +89,8 @@ variables = [
     var("Oeffentliche IP", "PUBLIC_IP", "auto",
         "Nur fuer nethernet: Die IP, ueber die Spieler den Server erreichen. "
         "'auto' = automatisch (Allocation-IP, sonst oeffentliche IP des Hosts), "
-        "eine feste IP eintragen (z.B. LAN-IP fuer Heimserver) oder 'off' zum Abschalten.",
-        "required|string|max:64"),
+        "eine feste IP eintragen (z.B. LAN-IP fuer Heimserver) oder 'off' zum Abschalten. Leer = auto.",
+        "nullable|string|max:64"),
     var("Server-Telemetrie", "TELEMETRY", "true",
         "Sendet anonyme Server-Telemetrie an Mojang (emit-server-telemetry, true/false).",
         "required|string|in:true,false"),
