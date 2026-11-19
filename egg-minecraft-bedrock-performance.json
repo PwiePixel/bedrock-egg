@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-11-19T04:46:46+00:00",
+    "exported_at": "2026-11-19T12:02:57+00:00",
     "name": "Minecraft Bedrock (Performance)",
     "author": "contact@pixelcst.tech",
     "description": "Minecraft Bedrock Dedicated Server, optimiert fuer wenig CPU und RAM: kleinere Sichtweite, begrenzte Threads, sparsame Netzwerk-Kompression, Chunk-Aufbau beim Client. Schreibt Chat und Tode in die Konsole.",

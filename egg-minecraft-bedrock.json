@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-11-19T04:46:46+00:00",
+    "exported_at": "2026-11-19T12:02:57+00:00",
     "name": "Minecraft Bedrock",
     "author": "contact@pixelcst.tech",
     "description": "Offizieller Minecraft Bedrock Dedicated Server (Linux) mit Mojang-Standardwerten. Laedt die Version direkt von Mojang, unterstuetzt latest/preview/feste Versionen, schreibt Chat und Tode in die Konsole und behaelt beim Update Welten und Einstellungen.",

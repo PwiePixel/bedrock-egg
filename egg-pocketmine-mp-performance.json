@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-11-19T04:46:46+00:00",
+    "exported_at": "2026-11-19T12:02:57+00:00",
     "name": "PocketMine-MP (Performance)",
     "author": "contact@pixelcst.tech",
     "description": "PocketMine-MP Server, optimiert fuer wenig CPU und RAM: PHP 8.4, Sichtweite 8, weniger Chunk-Ticking, sparsamere Kompression (asynchron), begrenzte Worker und automatisches Speicher-Management. Chat wird in der Konsole geloggt.",

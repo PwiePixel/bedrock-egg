@@ -4,7 +4,7 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-11-19T04:46:46+00:00",
+    "exported_at": "2026-11-19T12:02:57+00:00",
     "name": "PocketMine-MP",
     "author": "contact@pixelcst.tech",
     "description": "PocketMine-MP Server (Minecraft Bedrock, PHP) mit Plugin-Unterstuetzung. Laedt PocketMine-MP und die passenden PHP-Binaries direkt von den offiziellen Releases. Viele Einstellungen direkt im Panel. Chat wird in der Konsole geloggt.",

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-EGG_REVISION = "3"  # bei jeder Aenderung am Startbefehl erhoehen
+EGG_REVISION = "4"  # bei jeder Aenderung am Startbefehl erhoehen
 install_script = (ROOT / "scripts" / "velocity" / "install.sh").read_text().replace("\r\n", "\n")
 
 DEFAULT_MOTD = "<#09add3>craftinghosting.free <gray>- Minecraft Proxy"
@@ -130,8 +130,8 @@ egg = {
                    "Die MOTD muss craftinghosting.free enthalten.",
     "features": None,
     "docker_images": {
-        "Java 25 (Velocity 4.x)": "ghcr.io/pterodactyl/yolks:java_25",
-        "Java 21 (Velocity 3.x)": "ghcr.io/pterodactyl/yolks:java_21",
+        "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
+        "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
     },
     "file_denylist": [],
     "startup": startup,
