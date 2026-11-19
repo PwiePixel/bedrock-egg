@@ -112,6 +112,7 @@ set_prop() {
     echo "$1=$2" >> server.properties.tmp
     mv server.properties.tmp server.properties
 }
+set_prop server-name "${SERVERNAME:-craftinghosting.free}"
 [ -n "${LEVEL_NAME}" ] && set_prop level-name "${LEVEL_NAME}"
 [ -n "${LEVEL_SEED}" ] && set_prop level-seed "${LEVEL_SEED}"
 [ -n "${GAMEMODE}" ] && set_prop gamemode "${GAMEMODE}"

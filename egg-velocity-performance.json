@@ -1,0 +1,233 @@
+{
+    "_comment": "Velocity Proxy Egg fuer Pterodactyl",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-11-19T04:46:35+00:00",
+    "name": "Velocity (Performance)",
+    "author": "contact@pixelcst.tech",
+    "description": "Velocity - schneller, moderner Proxy fuer Minecraft Java Edition. Laedt Velocity direkt von PaperMC (mit Pruefsumme), optimierte JVM-Flags, sparsame Kompression, TCP Fast Open. Die MOTD muss craftinghosting.free enthalten.",
+    "features": null,
+    "docker_images": {
+        "Java 25 (Velocity 4.x)": "ghcr.io/pterodactyl/yolks:java_25",
+        "Java 21 (Velocity 3.x)": "ghcr.io/pterodactyl/yolks:java_21"
+    },
+    "file_denylist": [],
+    "startup": "if [ -f velocity.toml ] && ! grep -qiE '^motd = .*craftinghosting\\.free' velocity.toml; then sed -i 's|^motd = .*|motd = \"<#09add3>craftinghosting.free <gray>- Minecraft Proxy\"|' velocity.toml; echo 'MOTD muss craftinghosting.free enthalten - Standard-MOTD gesetzt.'; fi; java -XX:InitialRAMPercentage={{RAM_PERCENT}} -XX:MaxRAMPercentage={{RAM_PERCENT}} -XX:+UseG1GC -XX:G1HeapRegionSize=4M -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -XX:MaxInlineLevel=15 -XX:+UseStringDeduplication -XX:+DisableExplicitGC -Dvelocity.packet-decode-logging=false -Dfile.encoding=UTF-8 -jar velocity.jar",
+    "config": {
+        "files": "{\n    \"velocity.toml\": {\n        \"parser\": \"file\",\n        \"find\": {\n            \"bind\": \"bind = \\\"0.0.0.0:{{server.build.default.port}}\\\"\",\n            \"motd\": \"motd = \\\"{{server.build.env.MOTD}}\\\"\",\n            \"show-max-players\": \"show-max-players = {{server.build.env.MAX_PLAYERS}}\",\n            \"online-mode\": \"online-mode = {{server.build.env.ONLINE_MODE}}\",\n            \"force-key-authentication\": \"force-key-authentication = {{server.build.env.FORCE_KEY_AUTH}}\",\n            \"prevent-client-proxy-connections\": \"prevent-client-proxy-connections = {{server.build.env.PREVENT_PROXY_CONNECTIONS}}\",\n            \"player-info-forwarding-mode\": \"player-info-forwarding-mode = \\\"{{server.build.env.FORWARDING_MODE}}\\\"\",\n            \"kick-existing-players\": \"kick-existing-players = {{server.build.env.KICK_EXISTING}}\",\n            \"lobby\": \"lobby = \\\"{{server.build.env.LOBBY_SERVER}}\\\"\",\n            \"compression-threshold\": \"compression-threshold = {{server.build.env.COMPRESSION_THRESHOLD}}\",\n            \"compression-level\": \"compression-level = {{server.build.env.COMPRESSION_LEVEL}}\",\n            \"login-ratelimit\": \"login-ratelimit = {{server.build.env.LOGIN_RATELIMIT}}\",\n            \"haproxy-protocol\": \"haproxy-protocol = {{server.build.env.HAPROXY}}\",\n            \"tcp-fast-open\": \"tcp-fast-open = {{server.build.env.TCP_FAST_OPEN}}\",\n            \"enable-reuse-port\": \"enable-reuse-port = {{server.build.env.REUSE_PORT}}\",\n            \"log-player-connections\": \"log-player-connections = {{server.build.env.LOG_CONNECTIONS}}\",\n            \"log-command-executions\": \"log-command-executions = {{server.build.env.LOG_COMMANDS}}\",\n            \"accepts-transfers\": \"accepts-transfers = {{server.build.env.ACCEPTS_TRANSFERS}}\",\n            \"enabled\": \"enabled = {{server.build.env.QUERY_ENABLED}}\",\n            \"port\": \"port = {{server.build.default.port}}\"\n        }\n    }\n}",
+        "startup": "{\n    \"done\": \"Done (\"\n}",
+        "logs": "{}",
+        "stop": "end"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# Velocity (Minecraft Java Proxy) - Installations-/Update-Skript fuer Pterodactyl\n# Laeuft im Installer-Container (ghcr.io/parkervcp/installers:debian) unter /mnt/server\n\nset -e\n\nSERVER_DIR=\"${SERVER_DIR:-/mnt/server}\"\nAPI=\"https://fill.papermc.io/v3/projects/velocity\"\nUA=\"craftinghosting-egg/1.0\"\n\nif ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then\n    apt-get update -y && apt-get install -y curl jq unzip ca-certificates\nfi\n\nmkdir -p \"${SERVER_DIR}\"\ncd \"${SERVER_DIR}\"\n\nVERSION=\"$(echo \"${VELOCITY_VERSION:-latest}\" | tr -d '[:space:]')\"\n[ -z \"${VERSION}\" ] && VERSION=\"latest\"\n\nif [ \"${VERSION}\" = \"latest\" ]; then\n    VERSION=\"$(curl -fsSL -m 30 -A \"${UA}\" \"${API}\" | jq -r '[.versions[][]] | map(select(test(\"SNAPSHOT\") | not)) | first')\"\n    if [ -z \"${VERSION}\" ] || [ \"${VERSION}\" = \"null\" ]; then\n        echo \"!! Konnte die neueste Velocity-Version nicht ermitteln.\"\n        exit 1\n    fi\nfi\n\necho \">> Velocity-Version: ${VERSION}\"\nBUILD_JSON=\"$(curl -fsSL -m 30 -A \"${UA}\" \"${API}/versions/${VERSION}/builds/latest\" || true)\"\nJAR_URL=\"$(echo \"${BUILD_JSON}\" | jq -r '.downloads[\"server:default\"].url // empty' 2>/dev/null || true)\"\nJAR_SHA=\"$(echo \"${BUILD_JSON}\" | jq -r '.downloads[\"server:default\"].checksums.sha256 // empty' 2>/dev/null || true)\"\nBUILD_ID=\"$(echo \"${BUILD_JSON}\" | jq -r '.id // empty' 2>/dev/null || true)\"\nif [ -z \"${JAR_URL}\" ]; then\n    echo \"!! Version ${VERSION} wurde nicht gefunden (Beispiele: latest, 4.3.1, 3.5.1).\"\n    exit 1\nfi\n\necho \">> Lade Velocity ${VERSION} Build ${BUILD_ID} ...\"\ncurl -fsSL --retry 3 -m 300 -A \"${UA}\" -o velocity.jar.new \"${JAR_URL}\"\nif [ -n \"${JAR_SHA}\" ] && [ \"$(sha256sum velocity.jar.new | cut -d' ' -f1)\" != \"${JAR_SHA}\" ]; then\n    rm -f velocity.jar.new\n    echo \"!! Pruefsumme stimmt nicht - Download beschaedigt.\"\n    exit 1\nfi\nmv -f velocity.jar.new velocity.jar\n\n# Standard-Konfiguration aus der JAR anlegen, damit das Panel sie schon beim ersten Start setzen kann\nif [ ! -f velocity.toml ]; then\n    echo \">> Erstelle velocity.toml ...\"\n    unzip -p velocity.jar default-velocity.toml > velocity.toml\n    # Beispiel-Server entfernen, nur 'lobby' bleibt\n    sed -i -e '/^factions = /d' -e '/^minigames = /d' velocity.toml\n    awk '\n        /^\\[forced-hosts\\]/ { print; infh = 1; next }\n        /^\\[/ { infh = 0 }\n        infh && !/^[[:space:]]*#/ && NF { next }\n        { print }\n    ' velocity.toml > velocity.toml.tmp && mv velocity.toml.tmp velocity.toml\nfi\n\nmkdir -p plugins\necho \"${VERSION}-${BUILD_ID}\" > .velocity_version\necho \">> Installation abgeschlossen: Velocity ${VERSION} (Build ${BUILD_ID})\"\n",
+            "container": "ghcr.io/parkervcp/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Velocity Version",
+            "description": "'latest' (neueste stabile Version) oder eine feste Version wie 4.3.1 oder 3.5.1. Velocity 4.x braucht das Docker-Image Java 25. Update = Server neu installieren.",
+            "env_variable": "VELOCITY_VERSION",
+            "default_value": "latest",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:30",
+            "field_type": "text"
+        },
+        {
+            "name": "MOTD",
+            "description": "Beschreibung in der Serverliste (MiniMessage-Format, z.B. <aqua>Text). Pflicht: muss 'craftinghosting.free' enthalten. Keine Anfuehrungszeichen oder Backslashes.",
+            "env_variable": "MOTD",
+            "default_value": "<#09add3>craftinghosting.free <gray>- Minecraft Proxy",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:300|regex:/craftinghosting\\.free/i|not_regex:/[\"\\\\]/",
+            "field_type": "text"
+        },
+        {
+            "name": "Angezeigte max. Spieler",
+            "description": "Maximale Spielerzahl, die in der Serverliste angezeigt wird.",
+            "env_variable": "MAX_PLAYERS",
+            "default_value": "500",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:0,100000",
+            "field_type": "text"
+        },
+        {
+            "name": "Online-Modus",
+            "description": "Spieler muessen ein gekauftes Minecraft-Konto haben (true/false).",
+            "env_variable": "ONLINE_MODE",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Forwarding-Modus",
+            "description": "Wie Spielerdaten an die Unterserver gehen: MODERN (empfohlen, Paper/Fabric), BUNGEEGUARD, LEGACY (alte Server/Spigot) oder NONE. Das Secret steht in forwarding.secret.",
+            "env_variable": "FORWARDING_MODE",
+            "default_value": "MODERN",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:NONE,LEGACY,BUNGEEGUARD,MODERN",
+            "field_type": "text"
+        },
+        {
+            "name": "Lobby-Server",
+            "description": "Adresse (IP:Port) des Lobby-Servers, auf den Spieler zuerst geleitet werden. Weitere Server in velocity.toml unter [servers] eintragen.",
+            "env_variable": "LOBBY_SERVER",
+            "default_value": "127.0.0.1:30066",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "Key-Authentifizierung erzwingen",
+            "description": "Erzwingt signierte Chat-Schluessel (true/false). Bei Problemen mit Plugins auf false.",
+            "env_variable": "FORCE_KEY_AUTH",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Bestehende Spieler kicken",
+            "description": "Bei doppeltem Login den bereits verbundenen Spieler kicken (true/false).",
+            "env_variable": "KICK_EXISTING",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Proxy-Clients verhindern",
+            "description": "Verhindert Verbindungen ueber Client-Proxys/VPN-Proxys (true/false).",
+            "env_variable": "PREVENT_PROXY_CONNECTIONS",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Kompressions-Schwelle",
+            "description": "Pakete ab dieser Groesse (Byte) werden komprimiert. -1 = aus.",
+            "env_variable": "COMPRESSION_THRESHOLD",
+            "default_value": "256",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:-1,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "Kompressions-Level",
+            "description": "zlib-Level 1-9 (-1 = Standard 6). Niedriger = weniger CPU, etwas mehr Bandbreite.",
+            "env_variable": "COMPRESSION_LEVEL",
+            "default_value": "4",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:-1,9",
+            "field_type": "text"
+        },
+        {
+            "name": "Login-Ratelimit (ms)",
+            "description": "Mindestabstand zwischen Logins derselben IP in Millisekunden (Schutz vor Bot-Angriffen).",
+            "env_variable": "LOGIN_RATELIMIT",
+            "default_value": "3000",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:0,600000",
+            "field_type": "text"
+        },
+        {
+            "name": "TCP Fast Open",
+            "description": "Schnellerer Verbindungsaufbau unter Linux (true/false).",
+            "env_variable": "TCP_FAST_OPEN",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Reuse-Port",
+            "description": "Mehrere Threads nehmen Verbindungen an - bessere Performance unter Linux (true/false).",
+            "env_variable": "REUSE_PORT",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "HAProxy-Protokoll",
+            "description": "Nur aktivieren, wenn ein HAProxy/TCPShield davor sitzt (true/false).",
+            "env_variable": "HAPROXY",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Verbindungen loggen",
+            "description": "Beitritte/Wechsel/Abgaenge in der Konsole (true/false).",
+            "env_variable": "LOG_CONNECTIONS",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Befehle loggen",
+            "description": "Von Spielern ausgefuehrte Proxy-Befehle in der Konsole (true/false).",
+            "env_variable": "LOG_COMMANDS",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Transfers akzeptieren",
+            "description": "Transfer-Pakete von anderen Servern annehmen (true/false).",
+            "env_variable": "ACCEPTS_TRANSFERS",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Query aktivieren",
+            "description": "GS4-Query auf dem Proxy-Port fuer Statusseiten (true/false).",
+            "env_variable": "QUERY_ENABLED",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "RAM-Anteil fuer Java (%)",
+            "description": "Wie viel Prozent des Panel-RAM-Limits Java als Heap nutzt. Rest bleibt fuer Netzwerk-Puffer.",
+            "env_variable": "RAM_PERCENT",
+            "default_value": "75",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:30,90",
+            "field_type": "text"
+        }
+    ]
+}

@@ -66,7 +66,7 @@ chmod +x bin/php7/bin/php
 if [ ! -f server.properties ]; then
     cat > server.properties <<PROPS
 #Properties Config file
-motd=PocketMine-MP Server
+motd=${SERVERNAME:-craftinghosting.free}
 server-port=19132
 server-portv6=19133
 enable-ipv6=false

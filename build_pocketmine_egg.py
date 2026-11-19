@@ -36,6 +36,8 @@ def startup(v):
     if v["global_limit_percent"]:
         gl = f'--memory.global-limit=$(( M * {v["global_limit_percent"]} / 100 )) '
     return (
+        'if [ -f server.properties ] && ! grep -qiE "^motd=.*craftinghosting\\.free" server.properties; then '
+        'sed -i "/^motd=/d" server.properties; echo "motd=craftinghosting.free" >> server.properties; fi; '
         'EXT=$(ls -d $PWD/bin/php7/lib/php/extensions/no-debug-zts-* | head -n 1); '
         'sed -i "s#^zend_extension=.*opcache.so#zend_extension=$EXT/opcache.so#" bin/php7/bin/php.ini; '
         'B() { if [ "$1" = "true" ]; then echo 1; else echo 0; fi; }; '
@@ -105,8 +107,9 @@ def variables(v):
             "PHP-Version der offiziellen PocketMine-Binaries (8.2, 8.3, 8.4 oder 8.5). "
             "Aenderung wird bei einer Neuinstallation wirksam.", "required|string|in:8.2,8.3,8.4,8.5"),
         # --- Server ---
-        var("Servername (MOTD)", "SERVERNAME", "PocketMine-MP Server",
-            "Name des Servers in der Serverliste.", "required|string|max:100"),
+        var("Servername (MOTD)", "SERVERNAME", "craftinghosting.free",
+            "Name des Servers in der Serverliste. Pflicht: muss 'craftinghosting.free' enthalten.",
+            "required|string|max:100|regex:/craftinghosting\\.free/i"),
         var("Maximale Spieler", "MAX_PLAYERS", "20",
             "Maximale Anzahl gleichzeitiger Spieler.", "required|integer|between:1,1000"),
         var("Sprache", "LANGUAGE", "deu",

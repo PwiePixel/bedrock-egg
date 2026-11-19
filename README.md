@@ -1,4 +1,25 @@
-# Minecraft Bedrock & PocketMine-MP Eggs für Pterodactyl
+# Minecraft Eggs für Pterodactyl – craftinghosting.free
+
+Eggs für **Minecraft Bedrock**, **PocketMine-MP** und den Java-Proxy **Velocity**.
+
+## Übersicht
+
+| Datei | Software | Variante |
+|---|---|---|
+| [`egg-minecraft-bedrock.json`](egg-minecraft-bedrock.json) | Bedrock Dedicated Server | Normal |
+| [`egg-minecraft-bedrock-performance.json`](egg-minecraft-bedrock-performance.json) | Bedrock Dedicated Server | Performance |
+| [`egg-pocketmine-mp.json`](egg-pocketmine-mp.json) | PocketMine-MP | Normal |
+| [`egg-pocketmine-mp-performance.json`](egg-pocketmine-mp-performance.json) | PocketMine-MP | Performance |
+| [`egg-velocity-performance.json`](egg-velocity-performance.json) | Velocity (Java-Proxy) | Performance |
+
+### Branding: `craftinghosting.free` ist Pflicht
+
+In **allen** Eggs muss der Servername bzw. die MOTD `craftinghosting.free` enthalten (Groß-/Kleinschreibung egal).
+Standardwert ist jeweils `craftinghosting.free`.
+
+1. **Panel-Prüfung:** Die Variable hat die Regel `regex:/craftinghosting\.free/i`. Ein Name ohne den Text lässt sich nicht speichern.
+2. **Prüfung beim Start:** Fehlt der Text trotzdem (z. B. durch Bearbeiten der Datei), setzt der Startbefehl automatisch den Standardnamen.
+
 
 Ein funktionierendes Egg für den offiziellen **Minecraft Bedrock Dedicated Server** (Linux).
 Getestet mit Bedrock **1.26.66.1**, also auch mit dem neuen Netzwerk-Transport *NetherNet*.
@@ -109,6 +130,27 @@ Sichtweite, Chunks pro Tick, Tick-Radius, Kompressions-Level, asynchrone Kompres
 Ist die Minecraft-App neuer als die unterstützte Version, kann man erst beitreten, wenn PocketMine ein Update herausbringt.
 Danach reicht eine Neuinstallation.
 
+## Velocity (Minecraft Java Proxy)
+
+[`egg-velocity-performance.json`](egg-velocity-performance.json) – auf Performance getrimmt:
+
+- Lädt Velocity direkt über die PaperMC-API (`latest` = neueste **stabile** Version, oder fest z. B. `4.3.1` / `3.5.1`) und prüft die SHA-256-Prüfsumme.
+- Docker-Image **Java 25** (für Velocity 4.x) oder **Java 21** (für 3.x) wählbar.
+- JVM-Flags nach Velocity-Empfehlung: G1GC, 4M-Regionen, AlwaysPreTouch, MaxInlineLevel=15, String-Deduplizierung. Der Heap richtet sich automatisch nach dem Panel-RAM (`RAM_PERCENT`, Standard 75 %).
+- Netzwerk: Kompression ab 256 Byte mit Level 4 (weniger CPU), **TCP Fast Open** und **Reuse-Port** (mehrere Accept-Threads) aktiv.
+- `velocity.toml` wird bei der Installation aus der JAR erzeugt (ohne Beispiel-Server). So stimmt der Port schon beim ersten Start.
+- Stoppen mit `end`.
+
+**Im Panel einstellbar:** Version, MOTD (Pflicht: `craftinghosting.free`), angezeigte max. Spieler, Online-Modus, Forwarding-Modus
+(`MODERN`/`BUNGEEGUARD`/`LEGACY`/`NONE`), Lobby-Server, Key-Authentifizierung, doppelte Logins kicken, Client-Proxys verhindern,
+Kompressions-Schwelle/-Level, Login-Ratelimit, TCP Fast Open, Reuse-Port, HAProxy-Protokoll, Verbindungen/Befehle loggen,
+Transfers, Query, RAM-Anteil.
+
+**Unterserver anbinden (MODERN-Forwarding):**
+1. In Paper (`config/paper-global.yml`): `proxies.velocity.enabled: true`, `online-mode: true`, `secret:` = Inhalt von `forwarding.secret` aus dem Velocity-Server.
+2. In der `server.properties` des Unterservers `online-mode=false`.
+3. Weitere Server in `velocity.toml` unter `[servers]` eintragen. Der Lobby-Server kommt aus der Panel-Variable.
+
 ## Entwicklung
 
 Beide JSON-Dateien werden aus `scripts/install.sh` und `scripts/enable_beta_api.py` erzeugt:
@@ -116,4 +158,5 @@ Beide JSON-Dateien werden aus `scripts/install.sh` und `scripts/enable_beta_api.
 ```bash
 python3 build_egg.py
 python3 build_pocketmine_egg.py
+python3 build_velocity_egg.py
 ```

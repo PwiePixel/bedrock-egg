@@ -15,6 +15,7 @@ startup = (
     'if [ -z "$IP" ]; then IP=$(curl -4 -fsS -m 5 https://api.ipify.org || curl -4 -fsS -m 5 https://ifconfig.me || true); fi; fi; '
     'if [ "$IP" = "off" ]; then IP=""; fi; '
     'if [ -n "$IP" ]; then U="$IP:$P:$P"; echo "NetherNet: oeffentliche Adresse $IP:$P"; fi; '
+    'if ! grep -qiE "^server-name=.*craftinghosting\\.free" server.properties; then sed -i "/^server-name=/d" server.properties; echo "server-name=craftinghosting.free" >> server.properties; fi; '
     'for KV in "server-portv6=$((P+1))" "server-udp-ports=$U" "emit-server-telemetry={{TELEMETRY}}"; do '
     'K="${KV%%=*}"; sed -i "/^$K=/d" server.properties; echo "$KV" >> server.properties; done; fi; '
     'LD_LIBRARY_PATH=. ./bedrock_server'
@@ -91,8 +92,9 @@ def variables(v):
             "oder eine feste Version wie 1.21.50.10. Zum Updaten den Server neu installieren "
             "(Welten und Einstellungen bleiben erhalten).",
             "required|string|max:20"),
-        var("Servername", "SERVERNAME", "Bedrock Server",
-            "Der Name, der in der Serverliste angezeigt wird.", "required|string|max:64"),
+        var("Servername", "SERVERNAME", "craftinghosting.free",
+            "Der Name, der in der Serverliste angezeigt wird. Pflicht: muss 'craftinghosting.free' enthalten.",
+            "required|string|max:64|regex:/craftinghosting\\.free/i"),
         var("Spielmodus", "GAMEMODE", "survival",
             "Standard-Spielmodus: survival, creative oder adventure.",
             "required|string|in:survival,creative,adventure"),
