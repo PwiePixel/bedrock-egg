@@ -10,7 +10,7 @@ install_script = (ROOT / "scripts" / "install.sh").read_text().replace("\r\n", "
 startup = (
     'if [ -f server.properties ]; then P={{SERVER_PORT}}; U="$P"; IP="{{PUBLIC_IP}}"; '
     'if [ "$IP" = "auto" ]; then IP=""; case "{{SERVER_IP}}" in ""|0.0.0.0|127.*|10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) ;; *) IP="{{SERVER_IP}}";; esac; '
-    'if [ -z "$IP" ]; then IP=$(curl -fsS -m 5 https://api.ipify.org || curl -fsS -m 5 https://ifconfig.me || true); fi; fi; '
+    'if [ -z "$IP" ]; then IP=$(curl -4 -fsS -m 5 https://api.ipify.org || curl -4 -fsS -m 5 https://ifconfig.me || true); fi; fi; '
     'if [ "$IP" = "off" ]; then IP=""; fi; '
     'if [ -n "$IP" ]; then U="$IP:$P:$P"; echo "NetherNet: oeffentliche Adresse $IP:$P"; fi; '
     'sed -i -e "s/^server-portv6=.*/server-portv6=$((P+1))/" -e "s/^server-udp-ports=.*/server-udp-ports=$U/" -e "/^emit-server-telemetry=/d" server.properties; '
