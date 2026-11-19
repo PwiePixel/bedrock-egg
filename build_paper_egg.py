@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+EGG_REVISION = "3"  # bei jeder Aenderung am Startbefehl erhoehen
 CFG = ROOT / "scripts" / "paper" / "configs"
 
 
@@ -32,7 +33,7 @@ AIKAR = (
 # und startet das Ergebnis OHNE Shell ("exec env ..."). Deshalb laeuft die Vorbereitung in einer
 # Befehlsersetzung $( ... ) ohne Ausgabe; die Speicher-Flags kommen aus einer zweiten.
 startup = (
-    '$({ '
+    '$({ echo "craftinghosting.free Egg Rev. ' + EGG_REVISION + '" >&2; '
     # Pflicht-MOTD
     'if [ -f server.properties ] && ! grep -qiE "^motd=.*craftinghosting\\.free" server.properties; then '
     'sed -i "/^motd=/d" server.properties; echo "motd=craftinghosting.free" >> server.properties; fi; '
@@ -130,7 +131,7 @@ egg = {
     "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
     "name": "Paper",
     "author": "contact@pixelcst.tech",
-    "description": "Paper - performanter Minecraft-Java-Server. Aikar-Flags plus Compact Object Headers, "
+    "description": "Rev. " + EGG_REVISION + " - Paper - performanter Minecraft-Java-Server. Aikar-Flags plus Compact Object Headers, "
                    "optimierte Paper/Spigot/Bukkit-Konfiguration, Velocity-Forwarding per Panel. "
                    "Die MOTD muss craftinghosting.free enthalten.",
     "features": ["eula", "java_version", "pid_limit"],

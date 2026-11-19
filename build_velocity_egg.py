@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+EGG_REVISION = "3"  # bei jeder Aenderung am Startbefehl erhoehen
 install_script = (ROOT / "scripts" / "velocity" / "install.sh").read_text().replace("\r\n", "\n")
 
 DEFAULT_MOTD = "<#09add3>craftinghosting.free <gray>- Minecraft Proxy"
@@ -69,7 +70,7 @@ def setting_cmd(key, env, default, kind):
 # ausgibt - uebrig bleibt nur der java-Befehl. Funktioniert auch mit Entrypoints, die "eval" nutzen.
 # Keine doppelten Leerzeichen verwenden (manche Entrypoints fassen sie zusammen).
 startup = (
-    '$({ '
+    '$({ echo "craftinghosting.free Egg Rev. ' + EGG_REVISION + '" >&2; '
     # velocity.toml anlegen, falls sie fehlt (z.B. Installation nie gelaufen)
     'if [ ! -f velocity.toml ] && [ -f velocity.jar ]; then '
     '{ unzip -p velocity.jar default-velocity.toml > velocity.toml 2>/dev/null && [ -s velocity.toml ]; } || '
@@ -121,9 +122,9 @@ egg = {
     "_comment": "Velocity Proxy Egg fuer Pterodactyl",
     "meta": {"version": "PTDL_v2", "update_url": None},
     "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
-    "name": "Velocity (Performance)",
+    "name": "Velocity (Performance) Rev. " + EGG_REVISION,
     "author": "contact@pixelcst.tech",
-    "description": "Velocity - schneller, moderner Proxy fuer Minecraft Java Edition. Laedt Velocity direkt "
+    "description": "Rev. " + EGG_REVISION + " - Velocity - schneller, moderner Proxy fuer Minecraft Java Edition. Laedt Velocity direkt "
                    "von PaperMC (mit Pruefsumme), optimierte JVM-Flags, sparsame Kompression, TCP Fast Open. "
                    "Alle Variablen haben Standardwerte - der Server startet auch ohne Eingaben. "
                    "Die MOTD muss craftinghosting.free enthalten.",
