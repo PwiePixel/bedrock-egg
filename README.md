@@ -140,6 +140,10 @@ Danach reicht eine Neuinstallation.
 - JVM-Flags nach Velocity-Empfehlung: G1GC, 4M-Regionen, AlwaysPreTouch, MaxInlineLevel=15, String-Deduplizierung. Der Heap richtet sich automatisch nach dem Panel-RAM (`RAM_PERCENT`, Standard 75 %).
 - Netzwerk: Kompression ab 256 Byte mit Level 4 (weniger CPU), **TCP Fast Open** und **Reuse-Port** (mehrere Accept-Threads) aktiv.
 - `velocity.toml` wird bei der Installation aus der JAR erzeugt (ohne Beispiel-Server). So stimmt der Port schon beim ersten Start.
+- **Startet immer, auch ohne Eingaben:** Jede Variable hat einen eingebauten Standardwert. Ist eine Variable leer (z. B. bei Servern,
+  die vor einem Egg-Update angelegt wurden, oder bei automatisch angelegten Servern), nutzt der Startbefehl diesen Wert. Er schreibt alle
+  Einstellungen bei jedem Start selbst in die `velocity.toml`. Fehlt die Datei, wird sie aus der JAR erzeugt (über `unzip`, `jar` oder
+  notfalls einen kurzen Velocity-Start). Kein Feld im Panel ist Pflicht.
 - Stoppen mit `end`.
 
 **Im Panel einstellbar:** Version, MOTD (Pflicht: `craftinghosting.free`), angezeigte max. Spieler, Online-Modus, Forwarding-Modus

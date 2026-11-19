@@ -4,19 +4,19 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-11-19T04:46:35+00:00",
+    "exported_at": "2026-11-19T11:44:43+00:00",
     "name": "Velocity (Performance)",
     "author": "contact@pixelcst.tech",
-    "description": "Velocity - schneller, moderner Proxy fuer Minecraft Java Edition. Laedt Velocity direkt von PaperMC (mit Pruefsumme), optimierte JVM-Flags, sparsame Kompression, TCP Fast Open. Die MOTD muss craftinghosting.free enthalten.",
+    "description": "Velocity - schneller, moderner Proxy fuer Minecraft Java Edition. Laedt Velocity direkt von PaperMC (mit Pruefsumme), optimierte JVM-Flags, sparsame Kompression, TCP Fast Open. Alle Variablen haben Standardwerte - der Server startet auch ohne Eingaben. Die MOTD muss craftinghosting.free enthalten.",
     "features": null,
     "docker_images": {
         "Java 25 (Velocity 4.x)": "ghcr.io/pterodactyl/yolks:java_25",
         "Java 21 (Velocity 3.x)": "ghcr.io/pterodactyl/yolks:java_21"
     },
     "file_denylist": [],
-    "startup": "if [ -f velocity.toml ] && ! grep -qiE '^motd = .*craftinghosting\\.free' velocity.toml; then sed -i 's|^motd = .*|motd = \"<#09add3>craftinghosting.free <gray>- Minecraft Proxy\"|' velocity.toml; echo 'MOTD muss craftinghosting.free enthalten - Standard-MOTD gesetzt.'; fi; java -XX:InitialRAMPercentage={{RAM_PERCENT}} -XX:MaxRAMPercentage={{RAM_PERCENT}} -XX:+UseG1GC -XX:G1HeapRegionSize=4M -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -XX:MaxInlineLevel=15 -XX:+UseStringDeduplication -XX:+DisableExplicitGC -Dvelocity.packet-decode-logging=false -Dfile.encoding=UTF-8 -jar velocity.jar",
+    "startup": "if [ ! -f velocity.toml ] && [ -f velocity.jar ]; then { unzip -p velocity.jar default-velocity.toml > velocity.toml 2>/dev/null && [ -s velocity.toml ]; } || { rm -f velocity.toml; jar xf velocity.jar default-velocity.toml 2>/dev/null && mv default-velocity.toml velocity.toml; } || { rm -f velocity.toml; java -jar velocity.jar < /dev/null > /dev/null 2>&1 & VP=$!; for i in $(seq 1 60); do [ -s velocity.toml ] && break; sleep 0.5; done; sleep 1; kill $VP 2>/dev/null; wait $VP 2>/dev/null; true; }; fi; T() { K=\"$1\" V=\"$2\" awk 'index($0,ENVIRON[\"K\"]\" =\")==1{print ENVIRON[\"K\"]\" = \"ENVIRON[\"V\"];next}{print}' velocity.toml > velocity.toml.tmp && mv velocity.toml.tmp velocity.toml; }; if [ -f velocity.toml ]; then M=\"${MOTD:-<#09add3>craftinghosting.free <gray>- Minecraft Proxy}\"; M=$(printf \"%s\" \"$M\" | tr -d \"\\\"\\\\\\\\\"); if ! printf \"%s\" \"$M\" | grep -qi \"craftinghosting\\.free\"; then M=\"<#09add3>craftinghosting.free <gray>- Minecraft Proxy\"; echo \"MOTD muss craftinghosting.free enthalten - Standard-MOTD gesetzt.\"; fi; T bind \"\\\"0.0.0.0:${SERVER_PORT:-25565}\\\"\"; T motd \"\\\"$M\\\"\"; T port \"${SERVER_PORT:-25565}\"; T show-max-players \"${MAX_PLAYERS:-500}\"; T online-mode \"${ONLINE_MODE:-true}\"; T player-info-forwarding-mode \"\\\"${FORWARDING_MODE:-MODERN}\\\"\"; T lobby \"\\\"${LOBBY_SERVER:-127.0.0.1:30066}\\\"\"; T force-key-authentication \"${FORCE_KEY_AUTH:-true}\"; T kick-existing-players \"${KICK_EXISTING:-false}\"; T prevent-client-proxy-connections \"${PREVENT_PROXY_CONNECTIONS:-false}\"; T compression-threshold \"${COMPRESSION_THRESHOLD:-256}\"; T compression-level \"${COMPRESSION_LEVEL:-4}\"; T login-ratelimit \"${LOGIN_RATELIMIT:-3000}\"; T tcp-fast-open \"${TCP_FAST_OPEN:-true}\"; T enable-reuse-port \"${REUSE_PORT:-true}\"; T haproxy-protocol \"${HAPROXY:-false}\"; T log-player-connections \"${LOG_CONNECTIONS:-true}\"; T log-command-executions \"${LOG_COMMANDS:-false}\"; T accepts-transfers \"${ACCEPTS_TRANSFERS:-false}\"; T enabled \"${QUERY_ENABLED:-false}\"; fi; R=\"${RAM_PERCENT:-75}\"; java -XX:InitialRAMPercentage=$R -XX:MaxRAMPercentage=$R -XX:+UseG1GC -XX:G1HeapRegionSize=4M -XX:+UnlockExperimentalVMOptions -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -XX:MaxInlineLevel=15 -XX:+UseStringDeduplication -XX:+DisableExplicitGC -Dvelocity.packet-decode-logging=false -Dfile.encoding=UTF-8 -jar velocity.jar",
     "config": {
-        "files": "{\n    \"velocity.toml\": {\n        \"parser\": \"file\",\n        \"find\": {\n            \"bind\": \"bind = \\\"0.0.0.0:{{server.build.default.port}}\\\"\",\n            \"motd\": \"motd = \\\"{{server.build.env.MOTD}}\\\"\",\n            \"show-max-players\": \"show-max-players = {{server.build.env.MAX_PLAYERS}}\",\n            \"online-mode\": \"online-mode = {{server.build.env.ONLINE_MODE}}\",\n            \"force-key-authentication\": \"force-key-authentication = {{server.build.env.FORCE_KEY_AUTH}}\",\n            \"prevent-client-proxy-connections\": \"prevent-client-proxy-connections = {{server.build.env.PREVENT_PROXY_CONNECTIONS}}\",\n            \"player-info-forwarding-mode\": \"player-info-forwarding-mode = \\\"{{server.build.env.FORWARDING_MODE}}\\\"\",\n            \"kick-existing-players\": \"kick-existing-players = {{server.build.env.KICK_EXISTING}}\",\n            \"lobby\": \"lobby = \\\"{{server.build.env.LOBBY_SERVER}}\\\"\",\n            \"compression-threshold\": \"compression-threshold = {{server.build.env.COMPRESSION_THRESHOLD}}\",\n            \"compression-level\": \"compression-level = {{server.build.env.COMPRESSION_LEVEL}}\",\n            \"login-ratelimit\": \"login-ratelimit = {{server.build.env.LOGIN_RATELIMIT}}\",\n            \"haproxy-protocol\": \"haproxy-protocol = {{server.build.env.HAPROXY}}\",\n            \"tcp-fast-open\": \"tcp-fast-open = {{server.build.env.TCP_FAST_OPEN}}\",\n            \"enable-reuse-port\": \"enable-reuse-port = {{server.build.env.REUSE_PORT}}\",\n            \"log-player-connections\": \"log-player-connections = {{server.build.env.LOG_CONNECTIONS}}\",\n            \"log-command-executions\": \"log-command-executions = {{server.build.env.LOG_COMMANDS}}\",\n            \"accepts-transfers\": \"accepts-transfers = {{server.build.env.ACCEPTS_TRANSFERS}}\",\n            \"enabled\": \"enabled = {{server.build.env.QUERY_ENABLED}}\",\n            \"port\": \"port = {{server.build.default.port}}\"\n        }\n    }\n}",
+        "files": "{}",
         "startup": "{\n    \"done\": \"Done (\"\n}",
         "logs": "{}",
         "stop": "end"
@@ -31,32 +31,32 @@
     "variables": [
         {
             "name": "Velocity Version",
-            "description": "'latest' (neueste stabile Version) oder eine feste Version wie 4.3.1 oder 3.5.1. Velocity 4.x braucht das Docker-Image Java 25. Update = Server neu installieren.",
+            "description": "'latest' (neueste stabile Version) oder fest, z.B. 4.3.1 oder 3.5.1. Leer = latest. Velocity 4.x braucht das Docker-Image Java 25. Update = Server neu installieren.",
             "env_variable": "VELOCITY_VERSION",
             "default_value": "latest",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|max:30",
+            "rules": "nullable|string|max:30",
             "field_type": "text"
         },
         {
             "name": "MOTD",
-            "description": "Beschreibung in der Serverliste (MiniMessage-Format, z.B. <aqua>Text). Pflicht: muss 'craftinghosting.free' enthalten. Keine Anfuehrungszeichen oder Backslashes.",
+            "description": "Beschreibung in der Serverliste (MiniMessage, z.B. <aqua>Text). Pflicht: muss 'craftinghosting.free' enthalten - sonst/leer wird automatisch die Standard-MOTD genutzt.",
             "env_variable": "MOTD",
             "default_value": "<#09add3>craftinghosting.free <gray>- Minecraft Proxy",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|max:300|regex:/craftinghosting\\.free/i|not_regex:/[\"\\\\]/",
+            "rules": "nullable|string|max:300|regex:/craftinghosting\\.free/i|not_regex:/[\"\\\\]/",
             "field_type": "text"
         },
         {
             "name": "Angezeigte max. Spieler",
-            "description": "Maximale Spielerzahl, die in der Serverliste angezeigt wird.",
+            "description": "Maximale Spielerzahl in der Serverliste.",
             "env_variable": "MAX_PLAYERS",
             "default_value": "500",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|integer|between:0,100000",
+            "rules": "nullable|integer|between:0,100000",
             "field_type": "text"
         },
         {
@@ -66,37 +66,37 @@
             "default_value": "true",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
             "name": "Forwarding-Modus",
-            "description": "Wie Spielerdaten an die Unterserver gehen: MODERN (empfohlen, Paper/Fabric), BUNGEEGUARD, LEGACY (alte Server/Spigot) oder NONE. Das Secret steht in forwarding.secret.",
+            "description": "MODERN (empfohlen, Paper/Fabric), BUNGEEGUARD, LEGACY (Spigot/alt) oder NONE. Das Secret steht in forwarding.secret.",
             "env_variable": "FORWARDING_MODE",
             "default_value": "MODERN",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:NONE,LEGACY,BUNGEEGUARD,MODERN",
+            "rules": "nullable|string|in:NONE,LEGACY,BUNGEEGUARD,MODERN",
             "field_type": "text"
         },
         {
             "name": "Lobby-Server",
-            "description": "Adresse (IP:Port) des Lobby-Servers, auf den Spieler zuerst geleitet werden. Weitere Server in velocity.toml unter [servers] eintragen.",
+            "description": "Adresse (IP:Port) des Lobby-Servers. Weitere Server in velocity.toml unter [servers].",
             "env_variable": "LOBBY_SERVER",
             "default_value": "127.0.0.1:30066",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|max:100",
+            "rules": "nullable|string|max:100|regex:/^[A-Za-z0-9.:_-]*$/",
             "field_type": "text"
         },
         {
             "name": "Key-Authentifizierung erzwingen",
-            "description": "Erzwingt signierte Chat-Schluessel (true/false). Bei Problemen mit Plugins auf false.",
+            "description": "Erzwingt signierte Chat-Schluessel (true/false). Bei Plugin-Problemen auf false.",
             "env_variable": "FORCE_KEY_AUTH",
             "default_value": "true",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -106,17 +106,17 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
             "name": "Proxy-Clients verhindern",
-            "description": "Verhindert Verbindungen ueber Client-Proxys/VPN-Proxys (true/false).",
+            "description": "Verhindert Verbindungen ueber Client-Proxys (true/false).",
             "env_variable": "PREVENT_PROXY_CONNECTIONS",
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -126,27 +126,27 @@
             "default_value": "256",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|integer|between:-1,65535",
+            "rules": "nullable|integer|between:-1,65535",
             "field_type": "text"
         },
         {
             "name": "Kompressions-Level",
-            "description": "zlib-Level 1-9 (-1 = Standard 6). Niedriger = weniger CPU, etwas mehr Bandbreite.",
+            "description": "zlib-Level 1-9 (-1 = Standard 6). Niedriger = weniger CPU.",
             "env_variable": "COMPRESSION_LEVEL",
             "default_value": "4",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|integer|between:-1,9",
+            "rules": "nullable|integer|between:-1,9",
             "field_type": "text"
         },
         {
             "name": "Login-Ratelimit (ms)",
-            "description": "Mindestabstand zwischen Logins derselben IP in Millisekunden (Schutz vor Bot-Angriffen).",
+            "description": "Mindestabstand zwischen Logins derselben IP in Millisekunden.",
             "env_variable": "LOGIN_RATELIMIT",
             "default_value": "3000",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|integer|between:0,600000",
+            "rules": "nullable|integer|between:0,600000",
             "field_type": "text"
         },
         {
@@ -156,17 +156,17 @@
             "default_value": "true",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
             "name": "Reuse-Port",
-            "description": "Mehrere Threads nehmen Verbindungen an - bessere Performance unter Linux (true/false).",
+            "description": "Mehrere Threads nehmen Verbindungen an (true/false).",
             "env_variable": "REUSE_PORT",
             "default_value": "true",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -176,7 +176,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -186,7 +186,7 @@
             "default_value": "true",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -196,7 +196,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -206,27 +206,27 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
             "name": "Query aktivieren",
-            "description": "GS4-Query auf dem Proxy-Port fuer Statusseiten (true/false).",
+            "description": "GS4-Query auf dem Proxy-Port (true/false).",
             "env_variable": "QUERY_ENABLED",
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|in:true,false",
+            "rules": "nullable|string|in:true,false",
             "field_type": "text"
         },
         {
             "name": "RAM-Anteil fuer Java (%)",
-            "description": "Wie viel Prozent des Panel-RAM-Limits Java als Heap nutzt. Rest bleibt fuer Netzwerk-Puffer.",
+            "description": "Prozent des Panel-RAM-Limits fuer den Java-Heap. Leer = 75.",
             "env_variable": "RAM_PERCENT",
             "default_value": "75",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|integer|between:30,90",
+            "rules": "nullable|integer|between:30,90",
             "field_type": "text"
         }
     ]

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Erzeugt das Velocity-Egg (Performance) aus scripts/velocity/install.sh."""
+"""Erzeugt das Velocity-Egg (Performance) aus scripts/velocity/install.sh.
+
+Alle Einstellungen werden beim Start in velocity.toml geschrieben. Ist eine Variable leer
+(z.B. bei Servern, die vor einem Egg-Update angelegt wurden, oder bei automatisch angelegten
+Servern), greift der hier festgelegte Standardwert - der Server startet also immer.
+"""
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -7,16 +12,80 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 install_script = (ROOT / "scripts" / "velocity" / "install.sh").read_text().replace("\r\n", "\n")
 
-BRAND = "craftinghosting.free"
-BRAND_RULE = "regex:/craftinghosting\\.free/i"
 DEFAULT_MOTD = "<#09add3>craftinghosting.free <gray>- Minecraft Proxy"
+BOOL = "nullable|string|in:true,false"
 
-# Von Velocity empfohlene JVM-Flags (G1, Pre-Touch), Heap relativ zum Container-RAM
+# (toml-Schluessel, Variable, Standardwert, Typ, Panel-Name, Beschreibung, Regeln)
+#   Typ "str"  -> Wert wird in Anfuehrungszeichen geschrieben
+#   Typ "raw"  -> Zahl / true / false
+SETTINGS = [
+    ("show-max-players", "MAX_PLAYERS", "500", "raw", "Angezeigte max. Spieler",
+     "Maximale Spielerzahl in der Serverliste.", "nullable|integer|between:0,100000"),
+    ("online-mode", "ONLINE_MODE", "true", "raw", "Online-Modus",
+     "Spieler muessen ein gekauftes Minecraft-Konto haben (true/false).", BOOL),
+    ("player-info-forwarding-mode", "FORWARDING_MODE", "MODERN", "str", "Forwarding-Modus",
+     "MODERN (empfohlen, Paper/Fabric), BUNGEEGUARD, LEGACY (Spigot/alt) oder NONE. "
+     "Das Secret steht in forwarding.secret.", "nullable|string|in:NONE,LEGACY,BUNGEEGUARD,MODERN"),
+    ("lobby", "LOBBY_SERVER", "127.0.0.1:30066", "str", "Lobby-Server",
+     "Adresse (IP:Port) des Lobby-Servers. Weitere Server in velocity.toml unter [servers].",
+     "nullable|string|max:100|regex:/^[A-Za-z0-9.:_-]*$/"),
+    ("force-key-authentication", "FORCE_KEY_AUTH", "true", "raw", "Key-Authentifizierung erzwingen",
+     "Erzwingt signierte Chat-Schluessel (true/false). Bei Plugin-Problemen auf false.", BOOL),
+    ("kick-existing-players", "KICK_EXISTING", "false", "raw", "Bestehende Spieler kicken",
+     "Bei doppeltem Login den bereits verbundenen Spieler kicken (true/false).", BOOL),
+    ("prevent-client-proxy-connections", "PREVENT_PROXY_CONNECTIONS", "false", "raw", "Proxy-Clients verhindern",
+     "Verhindert Verbindungen ueber Client-Proxys (true/false).", BOOL),
+    ("compression-threshold", "COMPRESSION_THRESHOLD", "256", "raw", "Kompressions-Schwelle",
+     "Pakete ab dieser Groesse (Byte) werden komprimiert. -1 = aus.", "nullable|integer|between:-1,65535"),
+    ("compression-level", "COMPRESSION_LEVEL", "4", "raw", "Kompressions-Level",
+     "zlib-Level 1-9 (-1 = Standard 6). Niedriger = weniger CPU.", "nullable|integer|between:-1,9"),
+    ("login-ratelimit", "LOGIN_RATELIMIT", "3000", "raw", "Login-Ratelimit (ms)",
+     "Mindestabstand zwischen Logins derselben IP in Millisekunden.", "nullable|integer|between:0,600000"),
+    ("tcp-fast-open", "TCP_FAST_OPEN", "true", "raw", "TCP Fast Open",
+     "Schnellerer Verbindungsaufbau unter Linux (true/false).", BOOL),
+    ("enable-reuse-port", "REUSE_PORT", "true", "raw", "Reuse-Port",
+     "Mehrere Threads nehmen Verbindungen an (true/false).", BOOL),
+    ("haproxy-protocol", "HAPROXY", "false", "raw", "HAProxy-Protokoll",
+     "Nur aktivieren, wenn ein HAProxy/TCPShield davor sitzt (true/false).", BOOL),
+    ("log-player-connections", "LOG_CONNECTIONS", "true", "raw", "Verbindungen loggen",
+     "Beitritte/Wechsel/Abgaenge in der Konsole (true/false).", BOOL),
+    ("log-command-executions", "LOG_COMMANDS", "false", "raw", "Befehle loggen",
+     "Von Spielern ausgefuehrte Proxy-Befehle in der Konsole (true/false).", BOOL),
+    ("accepts-transfers", "ACCEPTS_TRANSFERS", "false", "raw", "Transfers akzeptieren",
+     "Transfer-Pakete von anderen Servern annehmen (true/false).", BOOL),
+    ("enabled", "QUERY_ENABLED", "false", "raw", "Query aktivieren",
+     "GS4-Query auf dem Proxy-Port (true/false).", BOOL),
+]
+
+
+def setting_cmd(key, env, default, kind):
+    val = f"${{{env}:-{default}}}"
+    return f'T {key} "\\"{val}\\""; ' if kind == "str" else f'T {key} "{val}"; '
+
+
+# Hinweis: Pterodactyl fuehrt den Startbefehl ueber "echo ${STARTUP}" + eval aus.
+# Mehrfache Leerzeichen werden dabei zu einem - deshalb keine doppelten Leerzeichen.
 startup = (
-    f"if [ -f velocity.toml ] && ! grep -qiE '^motd = .*craftinghosting\\.free' velocity.toml; then "
-    f"sed -i 's|^motd = .*|motd = \"{DEFAULT_MOTD}\"|' velocity.toml; "
-    f"echo 'MOTD muss craftinghosting.free enthalten - Standard-MOTD gesetzt.'; fi; "
-    "java -XX:InitialRAMPercentage={{RAM_PERCENT}} -XX:MaxRAMPercentage={{RAM_PERCENT}} "
+    # velocity.toml anlegen, falls sie fehlt (z.B. Installation nie gelaufen)
+    'if [ ! -f velocity.toml ] && [ -f velocity.jar ]; then '
+    '{ unzip -p velocity.jar default-velocity.toml > velocity.toml 2>/dev/null && [ -s velocity.toml ]; } || '
+    '{ rm -f velocity.toml; jar xf velocity.jar default-velocity.toml 2>/dev/null && mv default-velocity.toml velocity.toml; } || '
+    # letzte Moeglichkeit: Velocity kurz starten, damit es die Standarddatei selbst schreibt
+    '{ rm -f velocity.toml; java -jar velocity.jar < /dev/null > /dev/null 2>&1 & VP=$!; '
+    'for i in $(seq 1 60); do [ -s velocity.toml ] && break; sleep 0.5; done; sleep 1; kill $VP 2>/dev/null; wait $VP 2>/dev/null; true; }; fi; '
+    # Helfer: Zeile "schluessel = ..." ersetzen (ohne Sonderzeichen-Probleme)
+    "T() { K=\"$1\" V=\"$2\" awk 'index($0,ENVIRON[\"K\"]\" =\")==1{print ENVIRON[\"K\"]\" = \"ENVIRON[\"V\"];next}{print}' "
+    'velocity.toml > velocity.toml.tmp && mv velocity.toml.tmp velocity.toml; }; '
+    'if [ -f velocity.toml ]; then '
+    # Pflicht-MOTD: leer oder ohne craftinghosting.free -> Standard; Anfuehrungszeichen/Backslashes entfernen
+    f'M="${{MOTD:-{DEFAULT_MOTD}}}"; M=$(printf "%s" "$M" | tr -d "\\"\\\\\\\\"); '
+    f'if ! printf "%s" "$M" | grep -qi "craftinghosting\\.free"; then M="{DEFAULT_MOTD}"; '
+    'echo "MOTD muss craftinghosting.free enthalten - Standard-MOTD gesetzt."; fi; '
+    'T bind "\\"0.0.0.0:${SERVER_PORT:-25565}\\""; T motd "\\"$M\\""; T port "${SERVER_PORT:-25565}"; '
+    + "".join(setting_cmd(k, e, d, t) for k, e, d, t, *_ in SETTINGS) +
+    'fi; '
+    'R="${RAM_PERCENT:-75}"; '
+    "java -XX:InitialRAMPercentage=$R -XX:MaxRAMPercentage=$R "
     "-XX:+UseG1GC -XX:G1HeapRegionSize=4M -XX:+UnlockExperimentalVMOptions "
     "-XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -XX:MaxInlineLevel=15 "
     "-XX:+UseStringDeduplication -XX:+DisableExplicitGC "
@@ -24,97 +93,26 @@ startup = (
     "-jar velocity.jar"
 )
 
-config_files = {
-    "velocity.toml": {
-        "parser": "file",
-        "find": {
-            "bind": "bind = \"0.0.0.0:{{server.build.default.port}}\"",
-            "motd": "motd = \"{{server.build.env.MOTD}}\"",
-            "show-max-players": "show-max-players = {{server.build.env.MAX_PLAYERS}}",
-            "online-mode": "online-mode = {{server.build.env.ONLINE_MODE}}",
-            "force-key-authentication": "force-key-authentication = {{server.build.env.FORCE_KEY_AUTH}}",
-            "prevent-client-proxy-connections": "prevent-client-proxy-connections = {{server.build.env.PREVENT_PROXY_CONNECTIONS}}",
-            "player-info-forwarding-mode": "player-info-forwarding-mode = \"{{server.build.env.FORWARDING_MODE}}\"",
-            "kick-existing-players": "kick-existing-players = {{server.build.env.KICK_EXISTING}}",
-            "lobby": "lobby = \"{{server.build.env.LOBBY_SERVER}}\"",
-            "compression-threshold": "compression-threshold = {{server.build.env.COMPRESSION_THRESHOLD}}",
-            "compression-level": "compression-level = {{server.build.env.COMPRESSION_LEVEL}}",
-            "login-ratelimit": "login-ratelimit = {{server.build.env.LOGIN_RATELIMIT}}",
-            "haproxy-protocol": "haproxy-protocol = {{server.build.env.HAPROXY}}",
-            "tcp-fast-open": "tcp-fast-open = {{server.build.env.TCP_FAST_OPEN}}",
-            "enable-reuse-port": "enable-reuse-port = {{server.build.env.REUSE_PORT}}",
-            "log-player-connections": "log-player-connections = {{server.build.env.LOG_CONNECTIONS}}",
-            "log-command-executions": "log-command-executions = {{server.build.env.LOG_COMMANDS}}",
-            "accepts-transfers": "accepts-transfers = {{server.build.env.ACCEPTS_TRANSFERS}}",
-            "enabled": "enabled = {{server.build.env.QUERY_ENABLED}}",
-            "port": "port = {{server.build.default.port}}",
-        },
-    }
-}
-
 
 def var(name, env, default, desc, rules):
-    return {
-        "name": name, "description": desc, "env_variable": env, "default_value": default,
-        "user_viewable": True, "user_editable": True, "rules": rules, "field_type": "text",
-    }
+    return {"name": name, "description": desc, "env_variable": env, "default_value": default,
+            "user_viewable": True, "user_editable": True, "rules": rules, "field_type": "text"}
 
-
-BOOL = "required|string|in:true,false"
 
 variables = [
     var("Velocity Version", "VELOCITY_VERSION", "latest",
-        "'latest' (neueste stabile Version) oder eine feste Version wie 4.3.1 oder 3.5.1. "
+        "'latest' (neueste stabile Version) oder fest, z.B. 4.3.1 oder 3.5.1. Leer = latest. "
         "Velocity 4.x braucht das Docker-Image Java 25. Update = Server neu installieren.",
-        "required|string|max:30"),
+        "nullable|string|max:30"),
     var("MOTD", "MOTD", DEFAULT_MOTD,
-        "Beschreibung in der Serverliste (MiniMessage-Format, z.B. <aqua>Text). "
-        "Pflicht: muss 'craftinghosting.free' enthalten. Keine Anfuehrungszeichen oder Backslashes.",
-        f"required|string|max:300|{BRAND_RULE}|not_regex:/[\"\\\\]/"),
-    var("Angezeigte max. Spieler", "MAX_PLAYERS", "500",
-        "Maximale Spielerzahl, die in der Serverliste angezeigt wird.", "required|integer|between:0,100000"),
-    var("Online-Modus", "ONLINE_MODE", "true",
-        "Spieler muessen ein gekauftes Minecraft-Konto haben (true/false).", BOOL),
-    var("Forwarding-Modus", "FORWARDING_MODE", "MODERN",
-        "Wie Spielerdaten an die Unterserver gehen: MODERN (empfohlen, Paper/Fabric), "
-        "BUNGEEGUARD, LEGACY (alte Server/Spigot) oder NONE. Das Secret steht in forwarding.secret.",
-        "required|string|in:NONE,LEGACY,BUNGEEGUARD,MODERN"),
-    var("Lobby-Server", "LOBBY_SERVER", "127.0.0.1:30066",
-        "Adresse (IP:Port) des Lobby-Servers, auf den Spieler zuerst geleitet werden. "
-        "Weitere Server in velocity.toml unter [servers] eintragen.",
-        "required|string|max:100"),
-    var("Key-Authentifizierung erzwingen", "FORCE_KEY_AUTH", "true",
-        "Erzwingt signierte Chat-Schluessel (true/false). Bei Problemen mit Plugins auf false.", BOOL),
-    var("Bestehende Spieler kicken", "KICK_EXISTING", "false",
-        "Bei doppeltem Login den bereits verbundenen Spieler kicken (true/false).", BOOL),
-    var("Proxy-Clients verhindern", "PREVENT_PROXY_CONNECTIONS", "false",
-        "Verhindert Verbindungen ueber Client-Proxys/VPN-Proxys (true/false).", BOOL),
-    var("Kompressions-Schwelle", "COMPRESSION_THRESHOLD", "256",
-        "Pakete ab dieser Groesse (Byte) werden komprimiert. -1 = aus.", "required|integer|between:-1,65535"),
-    var("Kompressions-Level", "COMPRESSION_LEVEL", "4",
-        "zlib-Level 1-9 (-1 = Standard 6). Niedriger = weniger CPU, etwas mehr Bandbreite.",
-        "required|integer|between:-1,9"),
-    var("Login-Ratelimit (ms)", "LOGIN_RATELIMIT", "3000",
-        "Mindestabstand zwischen Logins derselben IP in Millisekunden (Schutz vor Bot-Angriffen).",
-        "required|integer|between:0,600000"),
-    var("TCP Fast Open", "TCP_FAST_OPEN", "true",
-        "Schnellerer Verbindungsaufbau unter Linux (true/false).", BOOL),
-    var("Reuse-Port", "REUSE_PORT", "true",
-        "Mehrere Threads nehmen Verbindungen an - bessere Performance unter Linux (true/false).", BOOL),
-    var("HAProxy-Protokoll", "HAPROXY", "false",
-        "Nur aktivieren, wenn ein HAProxy/TCPShield davor sitzt (true/false).", BOOL),
-    var("Verbindungen loggen", "LOG_CONNECTIONS", "true",
-        "Beitritte/Wechsel/Abgaenge in der Konsole (true/false).", BOOL),
-    var("Befehle loggen", "LOG_COMMANDS", "false",
-        "Von Spielern ausgefuehrte Proxy-Befehle in der Konsole (true/false).", BOOL),
-    var("Transfers akzeptieren", "ACCEPTS_TRANSFERS", "false",
-        "Transfer-Pakete von anderen Servern annehmen (true/false).", BOOL),
-    var("Query aktivieren", "QUERY_ENABLED", "false",
-        "GS4-Query auf dem Proxy-Port fuer Statusseiten (true/false).", BOOL),
-    var("RAM-Anteil fuer Java (%)", "RAM_PERCENT", "75",
-        "Wie viel Prozent des Panel-RAM-Limits Java als Heap nutzt. Rest bleibt fuer Netzwerk-Puffer.",
-        "required|integer|between:30,90"),
+        "Beschreibung in der Serverliste (MiniMessage, z.B. <aqua>Text). Pflicht: muss "
+        "'craftinghosting.free' enthalten - sonst/leer wird automatisch die Standard-MOTD genutzt.",
+        "nullable|string|max:300|regex:/craftinghosting\\.free/i|not_regex:/[\"\\\\]/"),
 ]
+variables += [var(n, e, d, desc, r) for _, e, d, _, n, desc, r in SETTINGS]
+variables.append(var("RAM-Anteil fuer Java (%)", "RAM_PERCENT", "75",
+                     "Prozent des Panel-RAM-Limits fuer den Java-Heap. Leer = 75.",
+                     "nullable|integer|between:30,90"))
 
 egg = {
     "_comment": "Velocity Proxy Egg fuer Pterodactyl",
@@ -124,6 +122,7 @@ egg = {
     "author": "contact@pixelcst.tech",
     "description": "Velocity - schneller, moderner Proxy fuer Minecraft Java Edition. Laedt Velocity direkt "
                    "von PaperMC (mit Pruefsumme), optimierte JVM-Flags, sparsame Kompression, TCP Fast Open. "
+                   "Alle Variablen haben Standardwerte - der Server startet auch ohne Eingaben. "
                    "Die MOTD muss craftinghosting.free enthalten.",
     "features": None,
     "docker_images": {
@@ -133,7 +132,7 @@ egg = {
     "file_denylist": [],
     "startup": startup,
     "config": {
-        "files": json.dumps(config_files, indent=4),
+        "files": "{}",
         "startup": json.dumps({"done": "Done ("}, indent=4),
         "logs": "{}",
         "stop": "end",
