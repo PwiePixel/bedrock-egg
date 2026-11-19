@@ -63,9 +63,13 @@ def setting_cmd(key, env, default, kind):
     return f'T {key} "\\"{val}\\""; ' if kind == "str" else f'T {key} "{val}"; '
 
 
-# Hinweis: Pterodactyl fuehrt den Startbefehl ueber "echo ${STARTUP}" + eval aus.
-# Mehrfache Leerzeichen werden dabei zu einem - deshalb keine doppelten Leerzeichen.
+# Hinweis: Das Java-Image von Pterodactyl (yolks:java_*) wertet den Startbefehl nur mit
+# "eval echo" aus und startet das Ergebnis dann OHNE Shell ("exec env ...").
+# Deshalb laeuft die gesamte Vorbereitung in einer Befehlsersetzung $( ... ), die nichts
+# ausgibt - uebrig bleibt nur der java-Befehl. Funktioniert auch mit Entrypoints, die "eval" nutzen.
+# Keine doppelten Leerzeichen verwenden (manche Entrypoints fassen sie zusammen).
 startup = (
+    '$({ '
     # velocity.toml anlegen, falls sie fehlt (z.B. Installation nie gelaufen)
     'if [ ! -f velocity.toml ] && [ -f velocity.jar ]; then '
     '{ unzip -p velocity.jar default-velocity.toml > velocity.toml 2>/dev/null && [ -s velocity.toml ]; } || '
@@ -80,12 +84,11 @@ startup = (
     # Pflicht-MOTD: leer oder ohne craftinghosting.free -> Standard; Anfuehrungszeichen/Backslashes entfernen
     f'M="${{MOTD:-{DEFAULT_MOTD}}}"; M=$(printf "%s" "$M" | tr -d "\\"\\\\\\\\"); '
     f'if ! printf "%s" "$M" | grep -qi "craftinghosting\\.free"; then M="{DEFAULT_MOTD}"; '
-    'echo "MOTD muss craftinghosting.free enthalten - Standard-MOTD gesetzt."; fi; '
+    'echo "MOTD muss craftinghosting.free enthalten - Standard-MOTD gesetzt." >&2; fi; '
     'T bind "\\"0.0.0.0:${SERVER_PORT:-25565}\\""; T motd "\\"$M\\""; T port "${SERVER_PORT:-25565}"; '
     + "".join(setting_cmd(k, e, d, t) for k, e, d, t, *_ in SETTINGS) +
-    'fi; '
-    'R="${RAM_PERCENT:-75}"; '
-    "java -XX:InitialRAMPercentage=$R -XX:MaxRAMPercentage=$R "
+    'fi; } > /dev/null) '
+    "java -XX:InitialRAMPercentage=${RAM_PERCENT:-75} -XX:MaxRAMPercentage=${RAM_PERCENT:-75} "
     "-XX:+UseG1GC -XX:G1HeapRegionSize=4M -XX:+UnlockExperimentalVMOptions "
     "-XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch -XX:MaxInlineLevel=15 "
     "-XX:+UseStringDeduplication -XX:+DisableExplicitGC "

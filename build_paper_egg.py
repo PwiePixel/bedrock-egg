@@ -18,8 +18,7 @@ install_script = (install_script
                   .replace("__SPIGOT__", cfg("spigot.yml"))
                   .replace("__BUKKIT__", cfg("bukkit.yml")))
 
-# Hinweis: Pterodactyl fuehrt den Startbefehl ueber "echo ${STARTUP}" + eval aus.
-# Mehrfache Leerzeichen werden dabei zu einem - deshalb keine Einrueckungen in Mustern.
+# Keine doppelten Leerzeichen verwenden (manche Entrypoints fassen sie zusammen).
 AIKAR = (
     "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions "
     "-XX:+DisableExplicitGC -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M "
@@ -29,7 +28,11 @@ AIKAR = (
     "-XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true"
 )
 
+# Das Java-Image von Pterodactyl (yolks:java_*) wertet den Startbefehl nur mit "eval echo" aus
+# und startet das Ergebnis OHNE Shell ("exec env ..."). Deshalb laeuft die Vorbereitung in einer
+# Befehlsersetzung $( ... ) ohne Ausgabe; die Speicher-Flags kommen aus einer zweiten.
 startup = (
+    '$({ '
     # Pflicht-MOTD
     'if [ -f server.properties ] && ! grep -qiE "^motd=.*craftinghosting\\.free" server.properties; then '
     'sed -i "/^motd=/d" server.properties; echo "motd=craftinghosting.free" >> server.properties; fi; '
@@ -39,11 +42,12 @@ startup = (
     'if [ -f $PG ]; then sed -i -e "/^ \\{2\\}velocity:/,/^ \\{0,2\\}[^ ]/{s/^\\( \\{4\\}\\)enabled:.*/\\1enabled: true/;'
     "s/^\\( \\{4\\}\\)secret:.*/\\1secret: '$VS'/}\" $PG; fi; "
     'elif [ -f $PG ]; then sed -i "/^ \\{2\\}velocity:/,/^ \\{0,2\\}[^ ]/s/^\\( \\{4\\}\\)enabled:.*/\\1enabled: false/" $PG; fi; '
+    '} > /dev/null)'
     # Speicher: wie bisher 90 % des Panel-Limits, bei "unbegrenzt" 85 % des Container-RAMs
-    'if [ "{{SERVER_MEMORY}}" -gt 0 ] 2>/dev/null; then MEM="-Xms256M -Xmx$(({{SERVER_MEMORY}} - ({{SERVER_MEMORY}}/10)))M"; '
-    'else MEM="-Xms256M -XX:MaxRAMPercentage=85"; fi; '
-    "java -XX:+IgnoreUnrecognizedVMOptions $MEM " + AIKAR +
-    " -XX:+UseCompactObjectHeaders {{CUSTOM_STARTUP}} -jar {{SERVER_JARFILE}} nogui"
+    "java -XX:+IgnoreUnrecognizedVMOptions -Xms256M "
+    '$(if [ "{{SERVER_MEMORY}}" -gt 0 ] 2>/dev/null; then echo "-Xmx$(({{SERVER_MEMORY}} - ({{SERVER_MEMORY}}/10)))M"; '
+    'else echo "-XX:MaxRAMPercentage=85"; fi) ' + AIKAR +
+    " -XX:+UseCompactObjectHeaders {{CUSTOM_STARTUP}} -jar ${SERVER_JARFILE:-server.jar} nogui"
 )
 
 config_files = {

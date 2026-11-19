@@ -176,6 +176,14 @@ bleiben gleich, ein bestehendes Egg lässt sich also mit „Update Egg“ ersetz
   und `online-mode=false` automatisch gesetzt. Leer = Velocity aus.
 - **MOTD-Pflicht** `craftinghosting.free` wie bei allen Eggs.
 
+## Hinweis zu den Java-Eggs (Velocity, Paper)
+
+Das Java-Image von Pterodactyl (`ghcr.io/pterodactyl/yolks:java_*`) wertet den Startbefehl nur mit `eval echo` aus und
+startet das Ergebnis dann **ohne Shell** (`exec env …`). `if`, `;` oder Funktionen direkt im Startbefehl führen dort zu einem
+leeren Befehl. Der Server gibt dann nur die Umgebungsvariablen aus und beendet sich mit Exit-Code 0.
+Die Eggs führen deshalb die gesamte Vorbereitung in einer Befehlsersetzung `$( … )` ohne Ausgabe aus. Übrig bleibt nur der
+`java`-Befehl. Das funktioniert mit diesem Image und auch mit Images, deren Entrypoint `eval` nutzt.
+
 ## Entwicklung
 
 Beide JSON-Dateien werden aus `scripts/install.sh` und `scripts/enable_beta_api.py` erzeugt:
