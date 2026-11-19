@@ -33,6 +33,7 @@ config_files = {
             "online-mode": "{{server.build.env.ONLINE_MODE}}",
             "allow-list": "{{server.build.env.ALLOW_LIST}}",
             "transport": "{{server.build.env.TRANSPORT}}",
+            "emit-server-telemetry": "{{server.build.env.TELEMETRY}}",
         },
     }
 }

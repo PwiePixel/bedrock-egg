@@ -79,6 +79,14 @@ for f in server.properties permissions.json allowlist.json whitelist.json; do
 done
 rm -rf "${BACKUP_DIR}"
 
+# Server-Telemetrie standardmaessig aktivieren
+TELEMETRY="${TELEMETRY:-true}"
+if grep -q "^emit-server-telemetry=" server.properties; then
+    sed -i "s/^emit-server-telemetry=.*/emit-server-telemetry=${TELEMETRY}/" server.properties
+else
+    echo "emit-server-telemetry=${TELEMETRY}" >> server.properties
+fi
+
 chmod +x bedrock_server
 echo "${DOWNLOAD_URL##*/}" | sed -e 's/^bedrock-server-//' -e 's/\.zip$//' > .bedrock_version
 
