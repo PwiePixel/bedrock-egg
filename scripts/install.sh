@@ -134,6 +134,7 @@ run_probe() {
             if grep -qE "Server started|Exiting program" "$1" 2>/dev/null; then break; fi
         done
         sleep 2
+        if [ -n "$2" ]; then echo "$2"; sleep 3; fi
         echo stop
     ) | LD_LIBRARY_PATH=. timeout 200 ./bedrock_server > "$1" 2>&1 || true
 }
@@ -246,6 +247,23 @@ PY
 else
     update_world_packs remove 2>/dev/null || true
     rm -rf "${PACK_DIR}"
+fi
+
+# ---------------------------------------------------------------------------
+# Server-Identitaet dauerhaft speichern, damit Spieler nicht bei jedem Neustart
+# erneut gefragt werden, ob sie dem Server vertrauen
+# ---------------------------------------------------------------------------
+if [ -f keys/server_identity_key.pem ]; then
+    echo ">> Gespeicherte Server-Identitaet vorhanden (keys/server_identity_key.pem)"
+else
+    echo ">> Speichere Server-Identitaet ..."
+    run_probe /tmp/bds_probe3.log "serveridentity save"
+    if [ -f keys/server_identity_key.pem ]; then
+        echo ">> Server-Identitaet gespeichert (keys/server_identity_key.pem)"
+    else
+        echo "!! Server-Identitaet konnte nicht gespeichert werden. Bitte einmal in der Konsole: serveridentity save"
+    fi
+    rm -f /tmp/bds_probe3.log
 fi
 
 echo "${DOWNLOAD_URL##*/}" | sed -e 's/^bedrock-server-//' -e 's/\.zip$//' > .bedrock_version
