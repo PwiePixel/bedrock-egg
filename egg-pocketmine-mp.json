@@ -1,0 +1,302 @@
+{
+    "_comment": "PocketMine-MP Egg fuer Pterodactyl",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-11-19T04:18:37+00:00",
+    "name": "PocketMine-MP",
+    "author": "contact@pixelcst.tech",
+    "description": "PocketMine-MP Server (Minecraft Bedrock, PHP) mit Plugin-Unterstuetzung. Laedt PocketMine-MP und die passenden PHP-Binaries direkt von den offiziellen Releases. Viele Einstellungen direkt im Panel. Chat wird in der Konsole geloggt.",
+    "features": null,
+    "docker_images": {
+        "Debian": "ghcr.io/parkervcp/yolks:debian"
+    },
+    "file_denylist": [],
+    "startup": "EXT=$(ls -d $PWD/bin/php7/lib/php/extensions/no-debug-zts-* | head -n 1); sed -i \"s#^zend_extension=.*opcache.so#zend_extension=$EXT/opcache.so#\" bin/php7/bin/php.ini; B() { if [ \"$1\" = \"true\" ]; then echo 1; else echo 0; fi; }; M=\"{{MEMORY_LIMIT}}\"; if [ -z \"$M\" ] || [ \"$M\" = \"auto\" ]; then M=0; if [ \"{{SERVER_MEMORY}}\" -gt 0 ] 2>/dev/null; then M=$(( {{SERVER_MEMORY}} * 85 / 100 )); fi; fi; ./bin/php7/bin/php ./PocketMine-MP.phar --no-wizard --enable-ansi --auto-updater.enabled=0 --console.title-tick=0 --memory.main-hard-limit=$M --settings.async-workers={{ASYNC_WORKERS}} --chunk-sending.per-tick={{CHUNKS_PER_TICK}} --chunk-ticking.tick-radius={{TICK_RADIUS}} --network.compression-level={{COMPRESSION_LEVEL}} --network.async-compression=$(B {{ASYNC_COMPRESSION}}) --ticks-per.autosave={{AUTOSAVE_TICKS}} --debug.level=$(if [ \"{{DEBUG}}\" = \"true\" ]; then echo 2; else echo 1; fi)",
+    "config": {
+        "files": "{\n    \"server.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"server-port\": \"{{server.build.default.port}}\",\n            \"server-portv6\": \"{{server.build.default.port}}\",\n            \"enable-ipv6\": \"{{server.build.env.ENABLE_IPV6}}\",\n            \"motd\": \"{{server.build.env.SERVERNAME}}\",\n            \"max-players\": \"{{server.build.env.MAX_PLAYERS}}\",\n            \"gamemode\": \"{{server.build.env.GAMEMODE}}\",\n            \"force-gamemode\": \"{{server.build.env.FORCE_GAMEMODE}}\",\n            \"difficulty\": \"{{server.build.env.DIFFICULTY}}\",\n            \"hardcore\": \"{{server.build.env.HARDCORE}}\",\n            \"pvp\": \"{{server.build.env.PVP}}\",\n            \"level-name\": \"{{server.build.env.LEVEL_NAME}}\",\n            \"level-seed\": \"{{server.build.env.LEVEL_SEED}}\",\n            \"level-type\": \"{{server.build.env.LEVEL_TYPE}}\",\n            \"white-list\": \"{{server.build.env.WHITELIST}}\",\n            \"xbox-auth\": \"{{server.build.env.XBOX_AUTH}}\",\n            \"view-distance\": \"{{server.build.env.VIEW_DISTANCE}}\",\n            \"enable-query\": \"{{server.build.env.ENABLE_QUERY}}\",\n            \"auto-save\": \"{{server.build.env.AUTO_SAVE}}\",\n            \"language\": \"{{server.build.env.LANGUAGE}}\"\n        }\n    }\n}",
+        "startup": "{\n    \"done\": \"\\\"help\\\"\"\n}",
+        "logs": "{}",
+        "stop": "stop"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\n# PocketMine-MP - Installations-/Update-Skript fuer Pterodactyl\n# Laeuft im Installer-Container (ghcr.io/parkervcp/installers:debian) unter /mnt/server\n\nset -e\n\nSERVER_DIR=\"${SERVER_DIR:-/mnt/server}\"\n\nif ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then\n    apt-get update -y && apt-get install -y curl tar ca-certificates\nfi\n\nmkdir -p \"${SERVER_DIR}\"\ncd \"${SERVER_DIR}\"\n\nPM_VERSION=\"$(echo \"${PM_VERSION:-latest}\" | tr -d '[:space:]')\"\n[ -z \"${PM_VERSION}\" ] && PM_VERSION=\"latest\"\nPHP_VERSION=\"$(echo \"${PHP_VERSION:-8.2}\" | tr -d '[:space:]')\"\n\nif [ \"${PM_VERSION}\" = \"latest\" ]; then\n    PHAR_URL=\"https://github.com/pmmp/PocketMine-MP/releases/latest/download/PocketMine-MP.phar\"\nelse\n    if ! echo \"${PM_VERSION}\" | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+([-.][A-Za-z0-9.]+)?$'; then\n        echo \"!! Ungueltige PocketMine-Version '${PM_VERSION}'. Erlaubt: latest oder z.B. 5.44.3\"\n        exit 1\n    fi\n    PHAR_URL=\"https://github.com/pmmp/PocketMine-MP/releases/download/${PM_VERSION}/PocketMine-MP.phar\"\nfi\n\nPM_MAJOR=\"5\"\nif [ \"${PM_VERSION}\" != \"latest\" ]; then PM_MAJOR=\"${PM_VERSION%%.*}\"; fi\nPHP_URL=\"https://github.com/pmmp/PHP-Binaries/releases/download/pm${PM_MAJOR}-php-${PHP_VERSION}-latest/PHP-${PHP_VERSION}-Linux-x86_64-PM${PM_MAJOR}.tar.gz\"\n\necho \">> Lade PocketMine-MP (${PM_VERSION}) ...\"\nif ! curl -fsSL --retry 3 -m 300 -o PocketMine-MP.phar.new \"${PHAR_URL}\"; then\n    rm -f PocketMine-MP.phar.new\n    echo \"!! Download fehlgeschlagen: ${PHAR_URL}\"\n    exit 1\nfi\nif [ \"$(stat -c %s PocketMine-MP.phar.new)\" -lt 500000 ]; then\n    rm -f PocketMine-MP.phar.new\n    echo \"!! Heruntergeladene PocketMine-MP.phar ist unvollstaendig.\"\n    exit 1\nfi\nmv -f PocketMine-MP.phar.new PocketMine-MP.phar\n\necho \">> Lade PHP ${PHP_VERSION} fuer PocketMine-MP ${PM_MAJOR} ...\"\nif ! curl -fsSL --retry 3 -m 600 -o php.tar.gz \"${PHP_URL}\"; then\n    rm -f php.tar.gz\n    echo \"!! PHP-Download fehlgeschlagen: ${PHP_URL}\"\n    exit 1\nfi\nrm -rf bin\ntar -xzf php.tar.gz\nrm -f php.tar.gz\n\n# opcache mit absolutem Pfad laden (wird beim Start zusaetzlich korrigiert)\nEXT_DIR=\"$(ls -d \"${SERVER_DIR}\"/bin/php7/lib/php/extensions/no-debug-zts-* 2>/dev/null | head -n1)\"\nif [ -n \"${EXT_DIR}\" ]; then\n    EXT_DIR=\"/home/container${EXT_DIR#\"${SERVER_DIR}\"}\"\n    sed -i \"s#^zend_extension=.*opcache.so#zend_extension=${EXT_DIR}/opcache.so#\" bin/php7/bin/php.ini\nfi\nchmod +x bin/php7/bin/php\n\n# server.properties anlegen, damit das Panel die Werte setzen kann\nif [ ! -f server.properties ]; then\n    cat > server.properties <<PROPS\n#Properties Config file\nmotd=PocketMine-MP Server\nserver-port=19132\nserver-portv6=19133\nenable-ipv6=false\nPROPS\nfi\n\nmkdir -p plugins worlds resource_packs\n\nVERSION_LINE=\"$(./bin/php7/bin/php -d zend_extension= PocketMine-MP.phar --version 2>/dev/null | grep -m1 'for Minecraft' || true)\"\necho \">> Installation abgeschlossen: ${VERSION_LINE:-PocketMine-MP} (PHP ${PHP_VERSION})\"\n",
+            "container": "ghcr.io/parkervcp/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "PocketMine-MP Version",
+            "description": "'latest' oder eine feste Version wie 5.44.3. Zum Updaten den Server neu installieren (Welten, Plugins und Einstellungen bleiben erhalten).",
+            "env_variable": "PM_VERSION",
+            "default_value": "latest",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:30",
+            "field_type": "text"
+        },
+        {
+            "name": "PHP Version",
+            "description": "PHP-Version der offiziellen PocketMine-Binaries (8.2, 8.3, 8.4 oder 8.5). Aenderung wird bei einer Neuinstallation wirksam.",
+            "env_variable": "PHP_VERSION",
+            "default_value": "8.2",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:8.2,8.3,8.4,8.5",
+            "field_type": "text"
+        },
+        {
+            "name": "Servername (MOTD)",
+            "description": "Name des Servers in der Serverliste.",
+            "env_variable": "SERVERNAME",
+            "default_value": "PocketMine-MP Server",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "Maximale Spieler",
+            "description": "Maximale Anzahl gleichzeitiger Spieler.",
+            "env_variable": "MAX_PLAYERS",
+            "default_value": "20",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,1000",
+            "field_type": "text"
+        },
+        {
+            "name": "Sprache",
+            "description": "Sprache der Server-Meldungen (z.B. deu, eng, fra, ita, spa, jpn, kor).",
+            "env_variable": "LANGUAGE",
+            "default_value": "deu",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:5",
+            "field_type": "text"
+        },
+        {
+            "name": "Whitelist",
+            "description": "Nur Spieler auf der Whitelist duerfen beitreten (true/false). Hinzufuegen: whitelist add <Name>",
+            "env_variable": "WHITELIST",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Xbox-Anmeldung",
+            "description": "Spieler muessen mit einem Xbox/Microsoft-Konto angemeldet sein (true/false).",
+            "env_variable": "XBOX_AUTH",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Query aktivieren",
+            "description": "GS4-Query fuer Serverlisten/Statusseiten (true/false).",
+            "env_variable": "ENABLE_QUERY",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "IPv6 aktivieren",
+            "description": "Nur aktivieren, wenn der Docker-Container IPv6 hat - sonst stuerzt der Server beim Start ab.",
+            "env_variable": "ENABLE_IPV6",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Spielmodus",
+            "description": "survival, creative, adventure oder spectator.",
+            "env_variable": "GAMEMODE",
+            "default_value": "survival",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:survival,creative,adventure,spectator",
+            "field_type": "text"
+        },
+        {
+            "name": "Spielmodus erzwingen",
+            "description": "Spieler erhalten beim Beitritt immer den Standard-Spielmodus (true/false).",
+            "env_variable": "FORCE_GAMEMODE",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Schwierigkeit",
+            "description": "peaceful, easy, normal oder hard.",
+            "env_variable": "DIFFICULTY",
+            "default_value": "normal",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:peaceful,easy,normal,hard",
+            "field_type": "text"
+        },
+        {
+            "name": "Hardcore",
+            "description": "Hardcore-Modus (true/false).",
+            "env_variable": "HARDCORE",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "PvP",
+            "description": "Spieler koennen sich gegenseitig angreifen (true/false).",
+            "env_variable": "PVP",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Weltname",
+            "description": "Name der Standardwelt (Ordner unter worlds/).",
+            "env_variable": "LEVEL_NAME",
+            "default_value": "world",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64",
+            "field_type": "text"
+        },
+        {
+            "name": "Welt-Seed",
+            "description": "Seed fuer neue Welten (leer = zufaellig).",
+            "env_variable": "LEVEL_SEED",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:64",
+            "field_type": "text"
+        },
+        {
+            "name": "Welttyp",
+            "description": "Generator fuer neue Welten: DEFAULT, FLAT oder NETHER.",
+            "env_variable": "LEVEL_TYPE",
+            "default_value": "DEFAULT",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:DEFAULT,NORMAL,FLAT,NETHER,default,normal,flat,nether",
+            "field_type": "text"
+        },
+        {
+            "name": "Automatisch speichern",
+            "description": "Welten automatisch speichern (true/false).",
+            "env_variable": "AUTO_SAVE",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Speicher-Intervall (Ticks)",
+            "description": "Wie oft automatisch gespeichert wird, in Ticks (20 Ticks = 1 Sekunde, 6000 = 5 Minuten).",
+            "env_variable": "AUTOSAVE_TICKS",
+            "default_value": "6000",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:200,72000",
+            "field_type": "text"
+        },
+        {
+            "name": "Sichtweite",
+            "description": "Maximale Sichtweite in Chunks. Hoeher = mehr RAM/CPU.",
+            "env_variable": "VIEW_DISTANCE",
+            "default_value": "16",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:2,64",
+            "field_type": "text"
+        },
+        {
+            "name": "Chunks pro Tick",
+            "description": "Wie viele Chunks pro Tick an Spieler gesendet werden. Niedriger = weniger Lastspitzen.",
+            "env_variable": "CHUNKS_PER_TICK",
+            "default_value": "4",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,32",
+            "field_type": "text"
+        },
+        {
+            "name": "Tick-Radius",
+            "description": "Radius in Chunks um Spieler, in dem Bloecke/Pflanzen aktiv berechnet werden.",
+            "env_variable": "TICK_RADIUS",
+            "default_value": "3",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,10",
+            "field_type": "text"
+        },
+        {
+            "name": "Kompressions-Level",
+            "description": "zlib-Level fuer Netzwerkpakete (1-9). Niedriger = weniger CPU, mehr Bandbreite.",
+            "env_variable": "COMPRESSION_LEVEL",
+            "default_value": "6",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,9",
+            "field_type": "text"
+        },
+        {
+            "name": "Asynchrone Kompression",
+            "description": "Grosse Pakete in Hintergrund-Threads komprimieren, entlastet den Hauptthread (true/false).",
+            "env_variable": "ASYNC_COMPRESSION",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Async-Worker",
+            "description": "Anzahl Hintergrund-Threads ('auto' oder Zahl). Etwa so viele wie CPU-Kerne.",
+            "env_variable": "ASYNC_WORKERS",
+            "default_value": "auto",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:4",
+            "field_type": "text"
+        },
+        {
+            "name": "Speicherlimit (MB)",
+            "description": "Hartes Speicherlimit des Hauptthreads in MB. 'auto' = 85 % des Panel-RAM-Limits, 0 = kein Limit.",
+            "env_variable": "MEMORY_LIMIT",
+            "default_value": "auto",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:6",
+            "field_type": "text"
+        },
+        {
+            "name": "Debug-Ausgaben",
+            "description": "Zusaetzliche Debug-Meldungen in der Konsole (true/false).",
+            "env_variable": "DEBUG",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        }
+    ]
+}

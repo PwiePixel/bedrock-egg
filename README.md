@@ -1,4 +1,4 @@
-# Minecraft Bedrock Egg für Pterodactyl
+# Minecraft Bedrock & PocketMine-MP Eggs für Pterodactyl
 
 Ein funktionierendes Egg für den offiziellen **Minecraft Bedrock Dedicated Server** (Linux).
 Getestet mit Bedrock **1.26.66.1**, also auch mit dem neuen Netzwerk-Transport *NetherNet*.
@@ -42,6 +42,8 @@ Die passende Script-API-Version ermittelt die Installation selbst. Nach einem Be
   (TCP-Signalisierung + UDP). Das Egg setzt `server-port` **und** `server-udp-ports` auf den zugewiesenen Port.
 - **Kein Absturz ohne IPv6:** Im alten Modus `raknet` beendet sich der Server, wenn der Container kein IPv6 hat.
   `nethernet` fällt dann sauber auf IPv4 zurück. `server-portv6` wird automatisch auf *Port+1* gesetzt.
+- **Gespeicherte Server-Identität:** Die Installation führt einmal `serveridentity save` aus (`keys/server_identity_key.pem`).
+  So behält der Server bei jedem Neustart dieselbe Identität, und Spieler werden nicht jedes Mal gefragt, ob sie dem Server vertrauen.
 - **Allowlist standardmäßig aus:** Neue Bedrock-Versionen schalten die Allowlist ein, dann kann niemand beitreten.
   Im Egg ist sie per Variable aus. Du kannst sie bei Bedarf einschalten.
 - **Updates ohne Datenverlust:** Mit *Reinstall* lädt das Egg die neueste Version.
@@ -82,10 +84,36 @@ Die passende Script-API-Version ermittelt die Installation selbst. Nach einem Be
 - **`Port [...] may be in use` mit `raknet`:** Meist fehlt IPv6 im Container. Stelle `TRANSPORT` auf `nethernet`.
 - **Update:** Unter *Settings → Reinstall Server* neu installieren.
 
+## PocketMine-MP
+
+PocketMine-MP ist eine Bedrock-Server-Software in PHP mit Plugin-Unterstützung (Plugins: [Poggit](https://poggit.pmmp.io/plugins)).
+
+| Datei | Für wen | Unterschied |
+|---|---|---|
+| [`egg-pocketmine-mp.json`](egg-pocketmine-mp.json) | Normaler Server | PHP 8.2 (offiziell), Sichtweite 16, PocketMine-Standardwerte |
+| [`egg-pocketmine-mp-performance.json`](egg-pocketmine-mp-performance.json) | Wenig CPU/RAM | PHP 8.4, Sichtweite 8, Tick-Radius 2, 3 Chunks/Tick, Kompression Level 4 asynchron, 2 Worker, weiches Speicherlimit (75 %) |
+
+**Was das Egg macht:**
+- Lädt `PocketMine-MP.phar` (`latest` oder feste Version) und die passenden PHP-Binaries von den offiziellen Releases.
+- Startet ohne Einrichtungsassistent. Die „Fertig“-Meldung wird in jeder Sprache erkannt.
+- **IPv6 ist standardmäßig aus**, weil PocketMine sonst in Containern ohne IPv6 beim Start abstürzt.
+- Das Speicherlimit richtet sich automatisch nach dem RAM-Limit im Panel (`MEMORY_LIMIT=auto` → 85 %).
+- Der automatische Updater ist aus. Updates laufen über *Reinstall*, Welten, Plugins und Einstellungen bleiben erhalten.
+- Chat schreibt PocketMine von Haus aus in die Konsole.
+
+**Einstellbar im Panel:** Version, PHP-Version, MOTD, max. Spieler, Sprache, Whitelist, Xbox-Anmeldung, Query, IPv6,
+Spielmodus (auch erzwingen), Schwierigkeit, Hardcore, PvP, Weltname/-seed/-typ, Autosave und Intervall,
+Sichtweite, Chunks pro Tick, Tick-Radius, Kompressions-Level, asynchrone Kompression, Async-Worker, Speicherlimit, Debug.
+
+**Hinweis:** PocketMine-MP unterstützt immer nur bestimmte Bedrock-Versionen (5.44.3 → Bedrock 26.30) und nutzt RakNet (UDP).
+Ist die Minecraft-App neuer als die unterstützte Version, kann man erst beitreten, wenn PocketMine ein Update herausbringt.
+Danach reicht eine Neuinstallation.
+
 ## Entwicklung
 
 Beide JSON-Dateien werden aus `scripts/install.sh` und `scripts/enable_beta_api.py` erzeugt:
 
 ```bash
 python3 build_egg.py
+python3 build_pocketmine_egg.py
 ```
