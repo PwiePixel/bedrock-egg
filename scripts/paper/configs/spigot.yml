@@ -1,0 +1,15 @@
+# Performance-Voreinstellungen (craftinghosting.free). Spigot ergaenzt fehlende Werte selbst.
+world-settings:
+  default:
+    entity-activation-range:
+      animals: 16
+      monsters: 24
+      raiders: 48
+      misc: 8
+      water: 8
+      villagers: 16
+      flying-monsters: 48
+      tick-inactive-villagers: false
+    merge-radius:
+      item: 3.0
+      exp: 4.0

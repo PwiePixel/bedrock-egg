@@ -1,0 +1,11 @@
+# Performance-Voreinstellungen (craftinghosting.free). Bukkit ergaenzt fehlende Werte selbst.
+spawn-limits:
+  monsters: 50
+  animals: 8
+  water-animals: 3
+  water-ambient: 1
+  water-underground-creature: 3
+  axolotls: 3
+  ambient: 1
+ticks-per:
+  monster-spawns: 4

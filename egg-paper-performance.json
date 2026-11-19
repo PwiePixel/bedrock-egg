@@ -1,0 +1,211 @@
+{
+    "_comment": "Paper Egg fuer Pterodactyl (Performance)",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-11-19T05:03:50+00:00",
+    "name": "Paper",
+    "author": "contact@pixelcst.tech",
+    "description": "Paper - performanter Minecraft-Java-Server. Aikar-Flags plus Compact Object Headers, optimierte Paper/Spigot/Bukkit-Konfiguration, Velocity-Forwarding per Panel. Die MOTD muss craftinghosting.free enthalten.",
+    "features": [
+        "eula",
+        "java_version",
+        "pid_limit"
+    ],
+    "docker_images": {
+        "Java 25": "ghcr.io/pterodactyl/yolks:java_25",
+        "Java 21": "ghcr.io/pterodactyl/yolks:java_21",
+        "Java 17": "ghcr.io/pterodactyl/yolks:java_17",
+        "Java 16": "ghcr.io/pterodactyl/yolks:java_16",
+        "Java 11": "ghcr.io/pterodactyl/yolks:java_11",
+        "Java 8": "ghcr.io/pterodactyl/yolks:java_8"
+    },
+    "file_denylist": [],
+    "startup": "if [ -f server.properties ] && ! grep -qiE \"^motd=.*craftinghosting\\.free\" server.properties; then sed -i \"/^motd=/d\" server.properties; echo \"motd=craftinghosting.free\" >> server.properties; fi; VS=\"{{VELOCITY_SECRET}}\"; PG=config/paper-global.yml; if [ -n \"$VS\" ]; then sed -i \"s/^online-mode=.*/online-mode=false/\" server.properties; if [ -f $PG ]; then sed -i -e \"/^ \\{2\\}velocity:/,/^ \\{0,2\\}[^ ]/{s/^\\( \\{4\\}\\)enabled:.*/\\1enabled: true/;s/^\\( \\{4\\}\\)secret:.*/\\1secret: '$VS'/}\" $PG; fi; elif [ -f $PG ]; then sed -i \"/^ \\{2\\}velocity:/,/^ \\{0,2\\}[^ ]/s/^\\( \\{4\\}\\)enabled:.*/\\1enabled: false/\" $PG; fi; if [ \"{{SERVER_MEMORY}}\" -gt 0 ] 2>/dev/null; then MEM=\"-Xms256M -Xmx$(({{SERVER_MEMORY}} - ({{SERVER_MEMORY}}/10)))M\"; else MEM=\"-Xms256M -XX:MaxRAMPercentage=85\"; fi; java -XX:+IgnoreUnrecognizedVMOptions $MEM -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true -XX:+UseCompactObjectHeaders {{CUSTOM_STARTUP}} -jar {{SERVER_JARFILE}} nogui",
+    "config": {
+        "files": "{\n    \"server.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"server-ip\": \"0.0.0.0\",\n            \"server-port\": \"{{server.build.default.port}}\",\n            \"query.port\": \"{{server.build.default.port}}\",\n            \"motd\": \"{{server.build.env.MOTD}}\",\n            \"max-players\": \"{{server.build.env.MAX_PLAYERS}}\",\n            \"view-distance\": \"{{server.build.env.VIEW_DISTANCE}}\",\n            \"simulation-distance\": \"{{server.build.env.SIMULATION_DISTANCE}}\",\n            \"online-mode\": \"{{server.build.env.ONLINE_MODE}}\",\n            \"white-list\": \"{{server.build.env.WHITELIST}}\",\n            \"difficulty\": \"{{server.build.env.DIFFICULTY}}\",\n            \"gamemode\": \"{{server.build.env.GAMEMODE}}\",\n            \"pvp\": \"{{server.build.env.PVP}}\",\n            \"network-compression-threshold\": \"{{server.build.env.COMPRESSION_THRESHOLD}}\",\n            \"sync-chunk-writes\": \"false\"\n        }\n    }\n}",
+        "startup": "{\n    \"done\": \")! For help, type \"\n}",
+        "logs": "{}",
+        "stop": "stop"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/ash\n# Paper - Installations-/Update-Skript fuer Pterodactyl (Performance)\n# Laeuft im Installer-Container (ghcr.io/pterodactyl/installers:alpine) unter /mnt/server\n\nPROJECT=paper\nAPI=\"https://fill.papermc.io/v3/projects/${PROJECT}\"\nUSER_AGENT=\"craftinghosting-egg/1.0\"\nSERVER_DIR=\"${SERVER_DIR:-/mnt/server}\"\nSERVER_JARFILE=\"${SERVER_JARFILE:-server.jar}\"\n\nif ! command -v jq >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then\n    apk add --no-cache curl jq >/dev/null 2>&1 || true\nfi\n\nmkdir -p \"${SERVER_DIR}\"\ncd \"${SERVER_DIR}\" || exit 1\n\nif [ -n \"${DL_PATH}\" ]; then\n    echo \">> Nutze eigene Download-URL: ${DL_PATH}\"\n    DOWNLOAD_URL=$(eval echo \"$(echo \"${DL_PATH}\" | sed -e 's/{{/${/g' -e 's/}}/}/g')\")\n    DOWNLOAD_SHA=\"\"\nelse\n    PROJECT_JSON=$(curl -fsSL -m 30 -A \"${USER_AGENT}\" \"${API}\")\n    if [ -z \"${PROJECT_JSON}\" ]; then\n        echo \"!! PaperMC-API nicht erreichbar.\"\n        exit 1\n    fi\n    # Neueste stabile Version (ohne -rc / -pre / Snapshots)\n    LATEST_VERSION=$(printf \"%s\\n\" \"${PROJECT_JSON}\" | jq -r '[.versions[][]] | map(select(test(\"(?i)(rc|pre|snapshot|beta|alpha)\") | not)) | first')\n\n    if [ -z \"${MINECRAFT_VERSION}\" ] || [ \"${MINECRAFT_VERSION}\" = \"latest\" ]; then\n        MINECRAFT_VERSION=\"${LATEST_VERSION}\"\n    elif [ \"$(printf \"%s\\n\" \"${PROJECT_JSON}\" | jq -r --arg V \"${MINECRAFT_VERSION}\" '[.versions[][]] | index($V) != null')\" != \"true\" ]; then\n        echo \">> Version ${MINECRAFT_VERSION} nicht gefunden - nutze neueste Version ${LATEST_VERSION}\"\n        MINECRAFT_VERSION=\"${LATEST_VERSION}\"\n    fi\n\n    if [ -z \"${BUILD_NUMBER}\" ] || [ \"${BUILD_NUMBER}\" = \"latest\" ]; then\n        BUILD_JSON=$(curl -fsSL -m 30 -A \"${USER_AGENT}\" \"${API}/versions/${MINECRAFT_VERSION}/builds/latest\")\n    else\n        BUILD_JSON=$(curl -fsSL -m 30 -A \"${USER_AGENT}\" \"${API}/versions/${MINECRAFT_VERSION}/builds/${BUILD_NUMBER}\" || true)\n        if [ -z \"${BUILD_JSON}\" ] || [ \"$(printf \"%s\\n\" \"${BUILD_JSON}\" | jq -r '.id // empty')\" = \"\" ]; then\n            echo \">> Build ${BUILD_NUMBER} nicht gefunden - nutze neuesten Build\"\n            BUILD_JSON=$(curl -fsSL -m 30 -A \"${USER_AGENT}\" \"${API}/versions/${MINECRAFT_VERSION}/builds/latest\")\n        fi\n    fi\n    BUILD_NUMBER=$(printf \"%s\\n\" \"${BUILD_JSON}\" | jq -r '.id')\n    DOWNLOAD_URL=$(printf \"%s\\n\" \"${BUILD_JSON}\" | jq -r '.downloads.\"server:default\".url')\n    DOWNLOAD_SHA=$(printf \"%s\\n\" \"${BUILD_JSON}\" | jq -r '.downloads.\"server:default\".checksums.sha256 // empty')\n\n    echo \">> Projekt:    ${PROJECT}\"\n    echo \">> MC-Version: ${MINECRAFT_VERSION}\"\n    echo \">> Build:      ${BUILD_NUMBER} ($(printf \"%s\\n\" \"${BUILD_JSON}\" | jq -r '.channel'))\"\nfi\n\nif [ -z \"${DOWNLOAD_URL}\" ] || [ \"${DOWNLOAD_URL}\" = \"null\" ]; then\n    echo \"!! Keine Download-URL gefunden.\"\n    exit 1\nfi\n\necho \">> Lade ${DOWNLOAD_URL}\"\nif ! curl -fsSL --retry 3 -m 600 -A \"${USER_AGENT}\" -o \"${SERVER_JARFILE}.new\" \"${DOWNLOAD_URL}\"; then\n    rm -f \"${SERVER_JARFILE}.new\"\n    echo \"!! Download fehlgeschlagen.\"\n    exit 1\nfi\nif [ -n \"${DOWNLOAD_SHA}\" ] && [ \"$(sha256sum \"${SERVER_JARFILE}.new\" | cut -d' ' -f1)\" != \"${DOWNLOAD_SHA}\" ]; then\n    rm -f \"${SERVER_JARFILE}.new\"\n    echo \"!! Pruefsumme stimmt nicht - Download beschaedigt.\"\n    exit 1\nfi\nif [ -f \"${SERVER_JARFILE}\" ]; then\n    mv -f \"${SERVER_JARFILE}\" \"${SERVER_JARFILE}.old\"\nfi\nmv -f \"${SERVER_JARFILE}.new\" \"${SERVER_JARFILE}\"\n\nif [ ! -f server.properties ]; then\n    echo \">> Lade Standard-server.properties\"\n    curl -fsSL -m 30 -A \"${USER_AGENT}\" -o server.properties https://raw.githubusercontent.com/pterodactyl/game-eggs/main/minecraft/java/server.properties || touch server.properties\nfi\n\n# Performance-Konfiguration nur bei Neuinstallation (bestehende Dateien bleiben unangetastet)\nif [ \"${OPTIMIZE_CONFIGS:-true}\" = \"true\" ]; then\n    mkdir -p config\n    if [ ! -f config/paper-world-defaults.yml ]; then\n        echo \">> Lege optimierte config/paper-world-defaults.yml an\"\n        cat > config/paper-world-defaults.yml <<'YML'\n# Performance-Voreinstellungen (craftinghosting.free). Paper ergaenzt fehlende Werte selbst.\nchunks:\n  max-auto-save-chunks-per-tick: 8\n  prevent-moving-into-unloaded-chunks: true\n  entity-per-chunk-save-limit:\n    arrow: 16\n    ender_pearl: 8\n    experience_orb: 16\n    fireball: 8\n    small_fireball: 8\n    snowball: 8\ncollisions:\n  max-entity-collisions: 2\nentities:\n  armor-stands:\n    do-collision-entity-lookups: false\nenvironment:\n  optimize-explosions: true\n  treasure-maps:\n    find-already-discovered:\n      loot-tables: true\n      villager-trade: true\nmisc:\n  redstone-implementation: ALTERNATE_CURRENT\ntick-rates:\n  grass-spread: 4\n  mob-spawner: 2\nYML\n    fi\n    if [ ! -f spigot.yml ]; then\n        echo \">> Lege optimierte spigot.yml an\"\n        cat > spigot.yml <<'YML'\n# Performance-Voreinstellungen (craftinghosting.free). Spigot ergaenzt fehlende Werte selbst.\nworld-settings:\n  default:\n    entity-activation-range:\n      animals: 16\n      monsters: 24\n      raiders: 48\n      misc: 8\n      water: 8\n      villagers: 16\n      flying-monsters: 48\n      tick-inactive-villagers: false\n    merge-radius:\n      item: 3.0\n      exp: 4.0\nYML\n    fi\n    if [ ! -f bukkit.yml ]; then\n        echo \">> Lege optimierte bukkit.yml an\"\n        cat > bukkit.yml <<'YML'\n# Performance-Voreinstellungen (craftinghosting.free). Bukkit ergaenzt fehlende Werte selbst.\nspawn-limits:\n  monsters: 50\n  animals: 8\n  water-animals: 3\n  water-ambient: 1\n  water-underground-creature: 3\n  axolotls: 3\n  ambient: 1\nticks-per:\n  monster-spawns: 4\nYML\n    fi\nfi\n\n# Velocity-Block vorbereiten, damit er beim Start gesetzt werden kann\nmkdir -p config\nif [ ! -f config/paper-global.yml ]; then\n    cat > config/paper-global.yml <<'YML'\n# Paper ergaenzt fehlende Werte selbst. Velocity wird ueber das Panel gesteuert.\nproxies:\n  velocity:\n    enabled: false\n    online-mode: true\n    secret: ''\nYML\nfi\n\necho \">> Installation abgeschlossen.\"\n",
+            "container": "ghcr.io/pterodactyl/installers:alpine",
+            "entrypoint": "ash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Minecraft Version",
+            "description": "Minecraft-Version, z.B. 26.3 oder 1.21.11. 'latest' = neueste stabile Version. Ungueltige Versionen fallen auf latest zurueck.",
+            "env_variable": "MINECRAFT_VERSION",
+            "default_value": "latest",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Jar File",
+            "description": "Dateiname der Server-JAR.",
+            "env_variable": "SERVER_JARFILE",
+            "default_value": "server.jar",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|regex:/^([\\w\\d._-]+)(\\.jar)$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Download Path",
+            "description": "Eigene Download-URL statt PaperMC. Nicht fuer Nutzer sichtbar.",
+            "env_variable": "DL_PATH",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Build Number",
+            "description": "Paper-Build. 'latest' = neuester Build. Ungueltige Builds fallen auf latest zurueck.",
+            "env_variable": "BUILD_NUMBER",
+            "default_value": "latest",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Zusaetzliche JVM-Flags",
+            "description": "Weitere Java-Parameter (nur Admin). Beispiel: -Dpaper.disableChannelLimit=true",
+            "env_variable": "CUSTOM_STARTUP",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "nullable|string|max:512",
+            "field_type": "text"
+        },
+        {
+            "name": "MOTD",
+            "description": "Beschreibung in der Serverliste. Pflicht: muss 'craftinghosting.free' enthalten.",
+            "env_variable": "MOTD",
+            "default_value": "craftinghosting.free",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:150|regex:/craftinghosting\\.free/i",
+            "field_type": "text"
+        },
+        {
+            "name": "Maximale Spieler",
+            "description": "Maximale Anzahl Spieler.",
+            "env_variable": "MAX_PLAYERS",
+            "default_value": "20",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,1000",
+            "field_type": "text"
+        },
+        {
+            "name": "Sichtweite",
+            "description": "Sichtweite in Chunks (Vanilla: 10). Groesster Hebel fuer RAM/CPU.",
+            "env_variable": "VIEW_DISTANCE",
+            "default_value": "8",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:2,32",
+            "field_type": "text"
+        },
+        {
+            "name": "Simulationsdistanz",
+            "description": "In wie vielen Chunks um Spieler Mobs/Redstone/Pflanzen berechnet werden (Vanilla: 10).",
+            "env_variable": "SIMULATION_DISTANCE",
+            "default_value": "6",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:2,32",
+            "field_type": "text"
+        },
+        {
+            "name": "Online-Modus",
+            "description": "Nur gekaufte Minecraft-Konten (true/false). Wird bei Velocity automatisch auf false gesetzt.",
+            "env_variable": "ONLINE_MODE",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Whitelist",
+            "description": "Nur Spieler auf der Whitelist (true/false).",
+            "env_variable": "WHITELIST",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Schwierigkeit",
+            "description": "peaceful, easy, normal oder hard.",
+            "env_variable": "DIFFICULTY",
+            "default_value": "easy",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:peaceful,easy,normal,hard",
+            "field_type": "text"
+        },
+        {
+            "name": "Spielmodus",
+            "description": "survival, creative, adventure oder spectator.",
+            "env_variable": "GAMEMODE",
+            "default_value": "survival",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:survival,creative,adventure,spectator",
+            "field_type": "text"
+        },
+        {
+            "name": "PvP",
+            "description": "Spieler koennen sich angreifen (true/false).",
+            "env_variable": "PVP",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        },
+        {
+            "name": "Kompressions-Schwelle",
+            "description": "Pakete ab dieser Groesse (Byte) werden komprimiert. Hinter Velocity auf -1 setzen.",
+            "env_variable": "COMPRESSION_THRESHOLD",
+            "default_value": "256",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:-1,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "Velocity-Secret",
+            "description": "Inhalt der forwarding.secret des Velocity-Proxys. Gesetzt = Velocity-Modern-Forwarding an und online-mode aus. Leer = aus.",
+            "env_variable": "VELOCITY_SECRET",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:128|regex:/^[A-Za-z0-9]*$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Optimierte Konfiguration",
+            "description": "Bei der Installation optimierte paper-world-defaults.yml, spigot.yml und bukkit.yml anlegen (nur wenn noch nicht vorhanden).",
+            "env_variable": "OPTIMIZE_CONFIGS",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        }
+    ]
+}

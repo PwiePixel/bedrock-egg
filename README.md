@@ -1,6 +1,6 @@
 # Minecraft Eggs für Pterodactyl – craftinghosting.free
 
-Eggs für **Minecraft Bedrock**, **PocketMine-MP** und den Java-Proxy **Velocity**.
+Eggs für **Minecraft Bedrock**, **PocketMine-MP**, **Paper** (Java) und den Java-Proxy **Velocity**.
 
 ## Übersicht
 
@@ -11,6 +11,7 @@ Eggs für **Minecraft Bedrock**, **PocketMine-MP** und den Java-Proxy **Velocity
 | [`egg-pocketmine-mp.json`](egg-pocketmine-mp.json) | PocketMine-MP | Normal |
 | [`egg-pocketmine-mp-performance.json`](egg-pocketmine-mp-performance.json) | PocketMine-MP | Performance |
 | [`egg-velocity-performance.json`](egg-velocity-performance.json) | Velocity (Java-Proxy) | Performance |
+| [`egg-paper-performance.json`](egg-paper-performance.json) | Paper (Java-Server) | Performance |
 
 ### Branding: `craftinghosting.free` ist Pflicht
 
@@ -151,6 +152,26 @@ Transfers, Query, RAM-Anteil.
 2. In der `server.properties` des Unterservers `online-mode=false`.
 3. Weitere Server in `velocity.toml` unter `[servers]` eintragen. Der Lobby-Server kommt aus der Panel-Variable.
 
+## Paper (Minecraft Java Server)
+
+[`egg-paper-performance.json`](egg-paper-performance.json) basiert auf dem Standard-Paper-Egg. Name („Paper“), Variablen und Aikar-Flags
+bleiben gleich, ein bestehendes Egg lässt sich also mit „Update Egg“ ersetzen.
+
+**Verbesserungen gegenüber dem Standard-Egg:**
+- **Startbefehl:** Die Aikar-Flags bleiben. Dazu kommen `-XX:+UseCompactObjectHeaders` (von PaperMC für Java 25 empfohlen, spart RAM; auf älterem Java wird der Flag
+  dank `-XX:+IgnoreUnrecognizedVMOptions` ignoriert) und `nogui`. Bei „unbegrenztem“ RAM (`SERVER_MEMORY=0`) wird nicht mehr `-Xmx0M` erzeugt,
+  sondern 85 % des Container-RAMs genutzt. `{{CUSTOM_STARTUP}}` hat jetzt eine Variable (nur Admin).
+- **Installation:** `latest` nimmt nur stabile Versionen (keine `-rc`/`-pre`). Die SHA-256-Prüfsumme wird kontrolliert, ungültige Builds fallen sauber auf den neuesten zurück.
+- **Optimierte Konfiguration** (nur bei Neuinstallation, bestehende Dateien bleiben unangetastet):
+  - `paper-world-defaults.yml`: Alternate-Current-Redstone, optimierte Explosionen, max. 2 Entity-Kollisionen, 8 Chunks Autosave pro Tick,
+    Limits für Pfeile/XP-Orbs pro Chunk, Schatzkarten ohne Lag-Suche, langsamere Gras-/Spawner-Ticks.
+  - `spigot.yml`: kleinere Entity-Activation-Ranges, inaktive Dorfbewohner nicht ticken, Item/XP-Merge.
+  - `bukkit.yml`: geringere Spawn-Limits, Monster-Spawns alle 4 Ticks.
+  - `server.properties`: Sichtweite 8, Simulationsdistanz 6, `sync-chunk-writes=false`.
+- **Velocity per Panel:** Den Inhalt der `forwarding.secret` des Velocity-Proxys bei `VELOCITY_SECRET` eintragen. Dann sind Modern-Forwarding
+  und `online-mode=false` automatisch gesetzt. Leer = Velocity aus.
+- **MOTD-Pflicht** `craftinghosting.free` wie bei allen Eggs.
+
 ## Entwicklung
 
 Beide JSON-Dateien werden aus `scripts/install.sh` und `scripts/enable_beta_api.py` erzeugt:
@@ -159,4 +180,5 @@ Beide JSON-Dateien werden aus `scripts/install.sh` und `scripts/enable_beta_api.
 python3 build_egg.py
 python3 build_pocketmine_egg.py
 python3 build_velocity_egg.py
+python3 build_paper_egg.py
 ```

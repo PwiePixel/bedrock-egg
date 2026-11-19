@@ -1,0 +1,27 @@
+# Performance-Voreinstellungen (craftinghosting.free). Paper ergaenzt fehlende Werte selbst.
+chunks:
+  max-auto-save-chunks-per-tick: 8
+  prevent-moving-into-unloaded-chunks: true
+  entity-per-chunk-save-limit:
+    arrow: 16
+    ender_pearl: 8
+    experience_orb: 16
+    fireball: 8
+    small_fireball: 8
+    snowball: 8
+collisions:
+  max-entity-collisions: 2
+entities:
+  armor-stands:
+    do-collision-entity-lookups: false
+environment:
+  optimize-explosions: true
+  treasure-maps:
+    find-already-discovered:
+      loot-tables: true
+      villager-trade: true
+misc:
+  redstone-implementation: ALTERNATE_CURRENT
+tick-rates:
+  grass-spread: 4
+  mob-spawner: 2
